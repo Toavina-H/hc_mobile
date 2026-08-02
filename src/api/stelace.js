@@ -25,12 +25,10 @@ async function login({ username, password }) {
   if (!res.ok) throw new Error('Invalid username or password')
 
   const tokens = await res.json()
-  console.log('AsyncStorage:', AsyncStorage)
-  console.log('multiSet type:', typeof AsyncStorage.multiSet)
-  console.log('tokens:', tokens)
+
   await AsyncStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken)
   await AsyncStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken)
-  console.log('eto1')
+
   return tokens
 }
 
