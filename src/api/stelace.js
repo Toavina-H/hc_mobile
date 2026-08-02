@@ -10,8 +10,7 @@ const REFRESH_TOKEN_KEY = 'stelace_refresh_token'
 
 
 async function login({ username, password }) {
-  console.log('fetching:', `${Config.STELACE_API_URL}/auth/login`)
-  const res = await fetch(`${Config.STELACE_API_URL}/auth/login`, {
+  const res = await fetch(`${BASE_URL}/auth/login`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
