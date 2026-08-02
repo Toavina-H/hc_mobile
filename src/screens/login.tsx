@@ -11,7 +11,7 @@ import {
   Platform,
 } from 'react-native'
 
-export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess?: (data: any) => void }) {
+export default function LoginScreen({ navigation }: { navigation: any }) { // Preparing for navigation
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -25,10 +25,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess?: (data
     setError(null);
     setLoading(true);
     try {
-      console.log('Logging in with username:', username)
-      const tokens = await stelace.auth.login({ username, password })
-      console.log('Login successful with tokens:', tokens)
-
+      await stelace.auth.login({ username, password })
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Invalid credentials')
     } finally {
