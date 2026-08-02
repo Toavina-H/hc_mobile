@@ -25,7 +25,6 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess?: (data
     setError(null);
     setLoading(true);
     try {
-      console.log('Logging in with username:', username)
       const tokens = await stelace.auth.login({ username, password })
       console.log('Login successful with tokens:', tokens)
 
