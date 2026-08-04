@@ -23,7 +23,7 @@ type ButtonProps = {
   textStyle?: StyleProp<TextStyle>
 }
 
-export default function Button({
+export default function HcButton({
   title,
   onPress,
   variant = 'primary',
@@ -34,6 +34,7 @@ export default function Button({
   textStyle,
 }: ButtonProps) {
   const isDisabled = disabled || loading
+
 
   return (
     <TouchableOpacity
@@ -48,7 +49,7 @@ export default function Button({
       disabled={isDisabled}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'primary' ? '#fff' : theme.colors.primary} />
+        <ActivityIndicator color={variant === 'primary' ? theme.colors.white : theme.colors.primary} />
       ) : (
         <Text style={[styles.text, textVariantStyles[variant], textStyle]}>
           {title}
@@ -60,7 +61,8 @@ export default function Button({
 
 const styles = StyleSheet.create({
   base: {
-    paddingVertical: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -73,7 +75,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   text: {
-    fontWeight: '600',
+    fontWeight: '400',
     fontSize: 16,
   },
 })
@@ -94,7 +96,7 @@ const variantStyles = StyleSheet.create({
 
 const textVariantStyles = StyleSheet.create({
   primary: {
-    color: '#fff',
+    color: theme.colors.white,
   },
   outline: {
     color: theme.colors.primary,
