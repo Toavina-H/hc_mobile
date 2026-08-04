@@ -99,3 +99,6 @@ To learn more about React Native, take a look at the following resources:
 # Import installed 
 - npm install @react-native-async-storage/async-storage
 - npm install react-native-config
+- npm install react-native-paper
+- npm install react-native-vector-icons
+- npm install --save-dev @types/react-native-vector-icons
