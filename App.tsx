@@ -5,19 +5,29 @@
  * @format
  */
 
-import LoginScreen from './src/screens/login';
-import { StatusBar, useColorScheme } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { createStaticNavigation, StaticParamList } from '@react-navigation/native'
+import { createNativeStackNavigator } from '@react-navigation/native-stack'
+import NotificationsScreen from './src/screens/notifications'
+import LoginScreen from './src/screens/login'
 
-function App() {
-  const isDarkMode = useColorScheme() === 'dark';
+const rootStack = createNativeStackNavigator({
+  screens: {
+    Login: { screen: LoginScreen },
+    Notifications: { screen: NotificationsScreen }
+  }
+})
 
-  return (
-    <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <LoginScreen />
-    </SafeAreaProvider>
-  );
+const Navigation = createStaticNavigation(rootStack)
+
+type RootStackParamList = StaticParamList<typeof rootStack>
+
+// Allow autocomplete and type checking for navigation params in screens
+declare global {
+  namespace ReactNavigation {
+    interface RootParamList extends RootStackParamList {}
+  }
 }
 
-export default App;
+export default function App() {
+  return <Navigation />
+}

@@ -4,21 +4,24 @@ import stelace from '../api/stelace'
 import { theme } from '../theme'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
 import HcButton from '../components/HcButton'
+import type { StaticScreenProps } from '@react-navigation/native'
+import { useNavigation } from '@react-navigation/native'
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Image
 } from 'react-native'
 
 type AuthTab = 'connexion' | 'inscription'
+type Props = StaticScreenProps<undefined>
 
-export default function LoginScreen({ navigation }: { navigation: any }) {
+export default function LoginScreen({ route }: Props) {
+  const navigation = useNavigation()
   const [activeTab, setActiveTab] = useState<AuthTab>('connexion')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -35,7 +38,7 @@ export default function LoginScreen({ navigation }: { navigation: any }) {
     setLoading(true)
     try {
       await stelace.auth.login({ username, password })
-      navigation.navigate('Applications')
+      navigation.navigate('Notifications')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Identifiants invalides')
     } finally {

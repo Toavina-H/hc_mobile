@@ -102,3 +102,4 @@ To learn more about React Native, take a look at the following resources:
 - npm install react-native-paper
 - npm install react-native-vector-icons
 - npm install --save-dev @types/react-native-vector-icons
+- npm install @react-navigation/native @react-navigation/native-stack @react-navigation/bottom-tabs react-native-screens
