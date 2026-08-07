@@ -6,10 +6,8 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
 import HcButton from '../components/HcButton'
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Linking } from 'react-native'
 
-type UserType = 'recruteur' | 'candidat'
-
 const PHONE_MAX_LENGTH = 20
-const CGU_URL = 'https://happycab.fr/cgu' // TODO: replace with real URL
+const CGU_URL = 'https://happycab.fr/cgu'
 
 export default function RegisterForm() {
   const navigation = useNavigation()
@@ -22,7 +20,6 @@ export default function RegisterForm() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [userType, setUserType] = useState<UserType | null>(null)
   const [acceptedCgu, setAcceptedCgu] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -34,7 +31,6 @@ export default function RegisterForm() {
     phone.trim() &&
     password &&
     confirmPassword === password &&
-    userType &&
     acceptedCgu
 
   const handleRegister = async () => {
