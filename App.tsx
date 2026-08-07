@@ -1,23 +1,45 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
+// App.tsx
+import { createStaticNavigation, StaticParamList } from '@react-navigation/native'
+import { createNativeStackNavigator } from '@react-navigation/native-stack'
+import { StatusBar, useColorScheme } from 'react-native'
+import AuthForm from './src/screens/authForm'
+// TODO: create these screens
+// import ForgotPasswordScreen from './src/screens/forgotPassword'
+// import CheckYourEmailScreen from './src/screens/checkYourEmail'
+// import HelpCenterScreen from './src/screens/helpCenter'
+// import ContactScreen from './src/screens/contact'
+// import NotificationsScreen from './src/screens/notifications'
 
-import LoginScreen from './src/screens/login';
-import { StatusBar, useColorScheme } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+const rootStack = createNativeStackNavigator({
+  screenOptions: {
+    headerShown: false,
+  },
+  screens: {
+    Auth: { screen: AuthForm }
 
-function App() {
-  const isDarkMode = useColorScheme() === 'dark';
+    // ForgotPassword: { screen: ForgotPasswordScreen },
+    // CheckYourEmail: { screen: CheckYourEmailScreen },
+    // HelpCenter: { screen: HelpCenterScreen },
+    // Contact: { screen: ContactScreen },
+    // Notifications: { screen: NotificationsScreen },
+  },
+})
 
-  return (
-    <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <LoginScreen />
-    </SafeAreaProvider>
-  );
+const Navigation = createStaticNavigation(rootStack)
+
+type RootStackParamList = StaticParamList<typeof rootStack>
+declare global {
+  namespace ReactNavigation {
+    interface RootParamList extends RootStackParamList {}
+  }
 }
 
-export default App;
+export default function App() {
+  const isDarkMode = useColorScheme() === 'dark'
+  return (
+    <>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+      <Navigation />
+    </>
+  )
+}
