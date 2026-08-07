@@ -40,5 +40,23 @@ async function getAccessToken() {
   return await AsyncStorage.getItem(ACCESS_TOKEN_KEY)
 }
 
-const stelace = { auth: {login, logout}, getAccessToken }
+async function sendResetPasswordRequest({ username}) {
+  const res = await fetch(`${BASE_URL}/password/reset/request`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': API_KEY,
+    },
+    body: JSON.stringify({ username: username.toLowerCase() }),
+  })
+  if (!res.ok) throw new Error('Impossible d\'envoyer le code')
+  return res.json().catch(() => ({}))
+}
+
+const stelace = { 
+  auth: {login, logout},
+  getAccessToken,
+  password: { resetRequest: sendResetPasswordRequest },
+}
+
 export default stelace
