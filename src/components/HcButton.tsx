@@ -29,7 +29,6 @@ export default function HcButton({
   variant = 'primary',
   loading = false,
   disabled = false,
-  fullWidth = true,
   style,
   textStyle,
 }: ButtonProps) {
@@ -41,7 +40,6 @@ export default function HcButton({
       style={[
         styles.base,
         variantStyles[variant],
-        fullWidth && styles.fullWidth,
         isDisabled && styles.disabled,
         style,
       ]}
@@ -67,9 +65,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
-  },
-  fullWidth: {
-    width: '100%',
   },
   disabled: {
     opacity: 0.5,
@@ -100,7 +95,7 @@ const textVariantStyles = StyleSheet.create({
   },
   outline: {
     color: theme.colors.primary,
-  },
+  },  
   ghost: {
     color: theme.colors.primary,
   },

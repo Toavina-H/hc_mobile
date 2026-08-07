@@ -7,7 +7,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
 import HcButton from '../components/HcButton'
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native'
 
-export default function LoginForm() {
+export default function LoginForm({ onForgotPassword }: { onForgotPassword: () => void }) {
   const navigation = useNavigation()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -77,7 +77,7 @@ export default function LoginForm() {
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
+      <TouchableOpacity onPress={onForgotPassword}>
         <Text style={styles.forgotPassword}>Mot de passe oublié ?</Text>
       </TouchableOpacity>
 
