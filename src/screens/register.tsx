@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native'
 import { theme } from '../theme'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
 import HcButton from '../components/HcButton'
+import stelace from '../api/stelace'
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Linking } from 'react-native'
 
 const PHONE_MAX_LENGTH = 20
@@ -33,7 +34,7 @@ export default function RegisterForm() {
     confirmPassword === password &&
     acceptedCgu
 
-  const handleRegister = async () => {
+const signup = async () => {
     if (!isFormValid) {
       setError('Merci de compléter tous les champs et d\u2019accepter les CGU')
       return
@@ -41,8 +42,28 @@ export default function RegisterForm() {
     setError(null)
     setLoading(true)
     try {
-      // TODO: wire up to stelace / hc-api registration endpoint
-      navigation.navigate('Notifications')
+      console.log('é'.normalize('NFD').length)
+      // await stelace.auth.signup({
+      //   user: {
+      //     firstname: firstName.trim(),
+      //     lastname: lastName.trim(),
+      //     email: email.trim(),
+      //     password,
+      //     roles: ['applicant'],
+      //     metadata: {
+      //       _private: {
+      //         phone: phone.trim(),
+      //       },
+      //     },
+      //     platformData: {
+      //       _private: {
+      //         version: 3,
+      //         cguAccepted: acceptedCgu,
+      //       },
+      //     },
+      //   },
+      // })
+      // navigation.navigate('Notifications')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Inscription impossible')
     } finally {
@@ -124,7 +145,7 @@ export default function RegisterForm() {
 
       <HcButton
         title="Inscription"
-        onPress={handleRegister}
+        onPress={signup}
         loading={loading}
         disabled={!isFormValid}
         style={{ marginTop: 16 }}
