@@ -101,6 +101,7 @@ async function getAccessToken() {
   return await AsyncStorage.getItem(ACCESS_TOKEN_KEY)
 }
 
+// Others
 async function sendResetPasswordRequest({ username}) {
   const res = await fetch(`${BASE_URL}/password/reset/request`, {
     method: 'POST',
@@ -114,10 +115,36 @@ async function sendResetPasswordRequest({ username}) {
   return res.json().catch(() => ({}))
 }
 
-const stelace = { 
-  auth: {login, logout, signup},
+const dataOptionsCache = {}
+ 
+async function getDataLabelOptions({ label, query, key } = {}) {
+  if (!label) return []
+ 
+  const needsCache = !query && !key
+  if (needsCache && dataOptionsCache[label]?.length) return dataOptionsCache[label]
+ 
+  const params = new URLSearchParams()
+  params.set('label', label)
+  if (query) params.set('query', query)
+  if (key) params.set('key', key)
+ 
+  // ASSUMPTION: public referential data, so publishable key only — no bearer token.
+  // Flag if your Stelace instance requires auth on /data/options.
+  const res = await fetch(`${BASE_URL}/data/options?${params.toString()}`, {
+    headers: { 'x-api-key': API_KEY ?? '' },
+  })
+  if (!res.ok) return []
+ 
+  const opts = await res.json()
+  if (needsCache) dataOptionsCache[label] = opts
+  return opts
+}
+ 
+const stelace = {
+  auth: { login, logout, signup },
   getAccessToken,
   password: { resetRequest: sendResetPasswordRequest },
+  data: { getDataLabelOptions },
 }
 
 export default stelace
