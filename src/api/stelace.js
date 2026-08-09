@@ -122,37 +122,6 @@ async function readAsset(id) {
   return res.json()
 }
 
-async function createAsset(payload) {
-  const token = await getAccessToken()
-  const res = await fetch(`${BASE_URL}/assets`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': API_KEY,
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(payload),
-  })
-  if (!res.ok) throw new Error('Asset create failed')
-  return res.json()
-}
-
-
-async function updateAsset(id, payload) {
-  const token = await getAccessToken()
-  const res = await fetch(`${BASE_URL}/assets/${id}`, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': API_KEY,
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(payload),
-  })
-  if (!res.ok) throw new Error('Asset update failed')
-  return res.json()
-}
-
 // Others
 async function sendResetPasswordRequest({ username}) {
   const res = await fetch(`${BASE_URL}/password/reset/request`, {
@@ -190,12 +159,35 @@ async function getDataLabelOptions({ label, query, key } = {}) {
   if (needsCache) dataOptionsCache[label] = opts
   return opts
 }
+
+async function affindaParseProcess({
+  assetId = undefined,
+  userId = undefined,
+  payload = {},
+  standalone = false,
+  s3FullPath = undefined,
+  skipParse = false,
+} = {}) {
+  const token = await getAccessToken()
+  const res = await fetch(`${BASE_URL}/integrations/affinda/parseprocess`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': API_KEY,
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ assetId, userId, payload, standalone, s3FullPath, skipParse }),
+  })
+  if (!res.ok) throw new Error('Affinda parse process failed')
+  return res.json()
+}
  
 const stelace = {
   auth: { login, logout, signup },
   getAccessToken,
   users: { getCurrent: getCurrentUser },
-  assets: { read: readAsset, create: createAsset, update: updateAsset },
+  assets: { read: readAsset },
+  search: { affindaParseProcess },
   password: { resetRequest: sendResetPasswordRequest },
   data: { getDataLabelOptions },
 }

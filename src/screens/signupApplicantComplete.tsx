@@ -1,6 +1,4 @@
 // src/screens/signupApplicantComplete.tsx
-// UI/layout pass — backend wiring (asset read/create, jobs referential, Affinda) comes next.
-// Resume upload is real (uses aws.files.uploadFileToS3), everything else is local state for now.
 
 import React, { useEffect, useState } from 'react'
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Image } from 'react-native'
@@ -14,11 +12,9 @@ import HcButton from '../components/HcButton'
 import aws from '../api/aws'
 import stelace from '../api/stelace'
 import { searchPlaces } from '../api/mapbox'
+import { useAuth } from '../components/Authentification'
 import AutocompleteInput, { AutocompleteOption } from '../components/Autocomplete'
 
-// Remaps jobboardLabel the same way ProfileForm.vue's mounted() hook does:
-// an array of jobboardLabel values becomes multiple separate options,
-// a single string jobboardLabel just overrides the display label.
 function remapJobboardLabels(baseOptions: AutocompleteOption[]): AutocompleteOption[] {
   const result: AutocompleteOption[] = []
   for (const option of baseOptions as any[]) {
@@ -35,9 +31,12 @@ function remapJobboardLabels(baseOptions: AutocompleteOption[]): AutocompleteOpt
   return result
 }
 
-
 export default function ProfileSetupScreen() {
   const navigation = useNavigation()
+
+  // Auth context — top level, not inside onSubmit
+  const { currentUser, loading: authLoading, refreshUser } = useAuth()
+  const [profileAsset, setProfileAsset] = useState<any | null>(null)
 
   const [locationQuery, setLocationQuery] = useState('')
   const [locationSuggestions, setLocationSuggestions] = useState<any[]>([])
@@ -45,12 +44,6 @@ export default function ProfileSetupScreen() {
   const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const [selectedJob, setSelectedJob] = useState<{ label: string; value: string | null } | null>(null)
   const [jobsOptions, setJobsOptions] = useState<AutocompleteOption[]>([])
-
-  useEffect(() => {
-    stelace.data.getDataLabelOptions({ label: 'jobs' }).then((baseOptions) => {
-      setJobsOptions(remapJobboardLabels(baseOptions))
-    })
-  }, [])
   const [accountantBackground, setAccountantBackground] = useState(false)
 
   const [resumeFileKey, setResumeFileKey] = useState<string | null>(null)
@@ -62,6 +55,24 @@ export default function ProfileSetupScreen() {
   const [parsingSuccess, setParsingSuccess] = useState(false)
 
   const isFormValid = !!location && !!selectedJob && !!resumeFileKey && !resumeError
+
+  useEffect(() => {
+    stelace.data.getDataLabelOptions({ label: 'jobs' }).then((baseOptions) => {
+      setJobsOptions(remapJobboardLabels(baseOptions))
+    })
+  }, [])
+
+  // Once logged in, check whether user already has a profile asset
+  useEffect(() => {
+    if (!currentUser) return
+    const profileAssetId = currentUser?.metadata?._resume?.profileAssetId
+    if (!profileAssetId) return
+
+    stelace.assets.read(profileAssetId).then((asset) => {
+      setProfileAsset(asset)
+      if (asset?.metadata?._files?.resumeNbParsing) setParsingSuccess(true)
+    })
+  }, [currentUser])
 
   const onChangeLocationQuery = (text: string) => {
     setLocationQuery(text)
@@ -80,31 +91,29 @@ export default function ProfileSetupScreen() {
   }
 
   const pickAndUploadResume = async () => {
+    if (!currentUser) return
     try {
       setResumeError(false)
       const [file] = await pick({ type: [types.pdf] })
       setResumeUploading(true)
 
-      // TODO: swap Date.now() placeholder id for the real userId once this screen
-      // is wired up right after signup (needs currentUser context/store).
-      // const fileKey = await aws.files.uploadFileToS3({
-      //   file: { uri: file.uri, name: file.name, type: file.type },
-      //   options: {
-      //     uploadFolder: 'files/resume',
-      //     uploadPrefix: 'resume',
-      //     contentType: 'application/pdf',
-      //     id: id: currentUser?.id,,
-      //   },
-      // })
+      const fileKey = await aws.files.uploadFileToS3({
+        file: { uri: file.uri, name: file.name, type: file.type },
+        options: {
+          uploadFolder: 'files/resume',
+          uploadPrefix: 'resume',
+          contentType: 'application/pdf',
+          id: currentUser.id,
+        },
+      })
 
-      // if (!fileKey) {
-      //   setResumeError(true)
-      // } else {
-      //   setResumeFileKey(fileKey)
-      //   setResumeFileName(file.name)
-      // }
+      if (!fileKey) {
+        setResumeError(true)
+      } else {
+        setResumeFileKey(fileKey)
+        setResumeFileName(file.name)
+      }
     } catch (e: any) {
-      // user cancelled the picker — not an error state
       if (e?.code !== 'DOCUMENTS_PICKER_CANCELED') setResumeError(true)
     } finally {
       setResumeUploading(false)
@@ -112,24 +121,51 @@ export default function ProfileSetupScreen() {
   }
 
   const onSubmit = async () => {
-    if (!isFormValid) return
+    if (!isFormValid || !currentUser) return
     setLoading(true)
-    const [currentUser, setCurrentUser] = useState<any | null>(null)
-    const [profileAsset, setProfileAsset] = useState<any | null>(null)
+    try {
+      const draftAsset = {
+        ...(profileAsset || {}),
+        locations: [location],
+        customAttributes: {
+          ...(profileAsset?.customAttributes || {}),
+          accountantBackground,
+          jobReferential: selectedJob?.value ?? null,
+          resumeUpdate: new Date().toISOString(),
+        },
+        metadata: {
+          ...(profileAsset?.metadata || {}),
+          _resume: {
+            ...(profileAsset?.metadata?._resume || {}),
+            library: true,
+            publicProfile: true,
+            preferredJob: selectedJob?.label ?? null,
+            email: currentUser.email,
+          },
+        },
+      }
 
-    useEffect(() => {
-      stelace.users.getCurrent().then(async (user) => {
-        setCurrentUser(user)
-        if (!user) return
-
-        const profileAssetId = user?.metadata?._resume?.profileAssetId
-        if (profileAssetId) {
-          const asset = await stelace.assets.read(profileAssetId)
-          setProfileAsset(asset)
-          if (asset?.metadata?._files?.resumeNbParsing) setParsingSuccess(true)
-        }
+      await stelace.users.update(currentUser.id, {
+        metadata: currentUser.metadata,
+        platformData: { _analytics: { source: 'happycab', action: 'accountCreation' } },
       })
-    }, [])
+
+      const saved = await stelace.search.affindaParseProcess({
+        userId: currentUser.id,
+        payload: draftAsset,
+        s3FullPath: resumeFileKey,
+      })
+
+      if (saved) {
+        setProfileAsset(saved)
+        setParsingSuccess(true)
+        await refreshUser()
+      }
+    } catch (e) {
+      setResumeError(true)
+    } finally {
+      setLoading(false)
+    }
   }
 
   if (parsingSuccess) {
@@ -210,7 +246,11 @@ export default function ProfileSetupScreen() {
             </Text>
           </View>
 
-          <TouchableOpacity style={styles.uploadCard} onPress={pickAndUploadResume} disabled={resumeUploading}>
+          <TouchableOpacity
+            style={styles.uploadCard}
+            onPress={pickAndUploadResume}
+            disabled={resumeUploading || authLoading}
+          >
             <View style={styles.uploadCardHeader}>
               <Text style={styles.uploadCardTitle}>
                 {resumeFileName ? resumeFileName : 'Ajouter un CV - Obligatoire'}
