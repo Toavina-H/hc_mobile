@@ -42,7 +42,6 @@ const signup = async () => {
     setError(null)
     setLoading(true)
     try {
-      console.log('é'.normalize('NFD').length)
       // await stelace.auth.signup({
       //   user: {
       //     firstname: firstName.trim(),
@@ -63,7 +62,7 @@ const signup = async () => {
       //     },
       //   },
       // })
-      // navigation.navigate('Notifications')
+      navigation.navigate('SignupApplicantComplete')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Inscription impossible')
     } finally {

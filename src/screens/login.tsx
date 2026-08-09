@@ -32,22 +32,23 @@ export default function LoginForm({ onForgotPassword }: { onForgotPassword: () =
     }
   }
 
-  const handlePasswordlessLogin = async () => {
-    if (!username) {
-      setError('Merci de renseigner votre email')
-      return
-    }
-    setError(null)
-    setLoading(true)
-    try {
-      await stelace.auth.sendPasswordlessLink({ username })
-      navigation.navigate('CheckYourEmail', { email: username })
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Impossible d'envoyer le lien")
-    } finally {
-      setLoading(false)
-    }
-  }
+  // TO DO: Connexion sans mot de passe
+  // const handlePasswordlessLogin = async () => {
+  //   if (!username) {
+  //     setError('Merci de renseigner votre email')
+  //     return
+  //   }
+  //   setError(null)
+  //   setLoading(true)
+  //   try {
+  //     await stelace.auth.sendPasswordlessLink({ username })
+  //     navigation.navigate('CheckYourEmail', { email: username })
+  //   } catch (e) {
+  //     setError(e instanceof Error ? e.message : "Impossible d'envoyer le lien")
+  //   } finally {
+  //     setLoading(false)
+  //   }
+  // }
 
   return (
     <>
@@ -85,7 +86,8 @@ export default function LoginForm({ onForgotPassword }: { onForgotPassword: () =
 
       <HcButton title="Connexion" onPress={handleLogin} loading={loading} style={{ width: '45%' }} />
 
-      <View style={styles.divider} />
+      {/* TO DO: Connexion sans mot de passe */}
+      {/* <View style={styles.divider} />
 
       <Text style={styles.passwordlessTitle}>Connexion rapide sans mot de passe</Text>
       <Text style={styles.passwordlessSubtitle}>
@@ -94,7 +96,7 @@ export default function LoginForm({ onForgotPassword }: { onForgotPassword: () =
 
       <TouchableOpacity style={styles.emailIconButton} onPress={handlePasswordlessLogin} disabled={loading}>
         <Icon name="email" size={18} color={theme.colors.grey7} />
-      </TouchableOpacity>
+      </TouchableOpacity> */}
     </>
   )
 }
@@ -116,7 +118,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
     fontWeight: '500',
-    width: '44%',
+    width: '50%',
   },
   divider: { height: 1, backgroundColor: theme.colors.grey3, marginVertical: 24 },
   passwordlessTitle: {
