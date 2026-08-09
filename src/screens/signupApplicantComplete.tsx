@@ -2,28 +2,48 @@
 // UI/layout pass — backend wiring (asset read/create, jobs referential, Affinda) comes next.
 // Resume upload is real (uses aws.files.uploadFileToS3), everything else is local state for now.
 
-import React, { useState } from 'react'
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Switch, ScrollView } from 'react-native'
+import React, { useEffect, useState } from 'react'
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Switch, ScrollView, Image } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
-import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete'
 import { pick, types } from '@react-native-documents/picker'
 import { theme } from '../theme'
 import HcButton from '../components/HcButton'
 import aws from '../api/aws'
+import stelace from '../api/stelace'
+import { searchPlaces } from '../api/mapbox'
+import AutocompleteInput, { AutocompleteOption } from '../components/Autocomplete'
 
-// TODO: replace with a real jobs-referential search once contentStore().getDataLabelOptions is ported
-const PLACEHOLDER_JOB_OPTIONS = [
-  { label: 'Comptable', value: 'comptable' },
-  { label: 'Assistant comptable', value: 'assistant_comptable' },
-  { label: 'Expert-comptable', value: 'expert_comptable' },
-]
+function remapJobboardLabels(baseOptions: AutocompleteOption[]): AutocompleteOption[] {
+  const result: AutocompleteOption[] = []
+  for (const option of baseOptions as any[]) {
+    if (Array.isArray(option.jobboardLabel)) {
+      for (const jobboardLabel of option.jobboardLabel) {
+        result.push({ ...option, label: jobboardLabel })
+      }
+    } else if (typeof option.jobboardLabel === 'string') {
+      result.push({ ...option, label: option.jobboardLabel })
+    } else {
+      result.push(option)
+    }
+  }
+  return result
+}
 
 export default function ProfileSetupScreen() {
   const navigation = useNavigation()
 
-  const [location, setLocation] = useState<{ description: string } | null>(null)
-  const [jobInput, setJobInput] = useState('')
+  const [locationQuery, setLocationQuery] = useState('')
+  const [locationSuggestions, setLocationSuggestions] = useState<any[]>([])
+  const [location, setLocation] = useState<any | null>(null)
+  const debounceRef = React.useRef<ReturnType<typeof setTimeout> | null>(null)
   const [selectedJob, setSelectedJob] = useState<{ label: string; value: string | null } | null>(null)
+  const [jobsOptions, setJobsOptions] = useState<AutocompleteOption[]>([])
+
+  useEffect(() => {
+    stelace.data.getDataLabelOptions({ label: 'jobs' }).then((baseOptions) => {
+      setJobsOptions(remapJobboardLabels(baseOptions))
+    })
+  }, [])
   const [accountantBackground, setAccountantBackground] = useState(false)
 
   const [resumeFileKey, setResumeFileKey] = useState<string | null>(null)
@@ -36,6 +56,22 @@ export default function ProfileSetupScreen() {
 
   const isFormValid = !!location && !!selectedJob && !!resumeFileKey && !resumeError
 
+  const onChangeLocationQuery = (text: string) => {
+    setLocationQuery(text)
+    setLocation(null)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(async () => {
+      const results = await searchPlaces(text)
+      setLocationSuggestions(results)
+    }, 650)
+  }
+
+  const onSelectLocation = (place: any) => {
+    setLocation(place)
+    setLocationQuery(place.name)
+    setLocationSuggestions([])
+  }
+
   const pickAndUploadResume = async () => {
     try {
       setResumeError(false)
@@ -44,22 +80,22 @@ export default function ProfileSetupScreen() {
 
       // TODO: swap Date.now() placeholder id for the real userId once this screen
       // is wired up right after signup (needs currentUser context/store).
-    //   const fileKey = await aws.files.uploadFileToS3({
-    //     file: { uri: file.uri, name: file.name, type: file.type },
-    //     options: {
-    //       uploadFolder: 'files/resume',
-    //       uploadPrefix: 'resume',
-    //       contentType: 'application/pdf',
-    //       id: 'placeholder-user-id',
-    //     },
-    //   })
+      const fileKey = await aws.files.uploadFileToS3({
+        file: { uri: file.uri, name: file.name, type: file.type },
+        options: {
+          uploadFolder: 'files/resume',
+          uploadPrefix: 'resume',
+          contentType: 'application/pdf',
+          id: 'placeholder-user-id',
+        },
+      })
 
-    //   if (!fileKey) {
-    //     setResumeError(true)
-    //   } else {
-    //     setResumeFileKey(fileKey)
-    //     setResumeFileName(file.name)
-    //   }
+      if (!fileKey) {
+        setResumeError(true)
+      } else {
+        setResumeFileKey(fileKey)
+        setResumeFileName(file.name)
+      }
     } catch (e: any) {
       // user cancelled the picker — not an error state
       if (e?.code !== 'DOCUMENTS_PICKER_CANCELED') setResumeError(true)
@@ -98,48 +134,35 @@ export default function ProfileSetupScreen() {
       <Text style={styles.heading}>Quelques informations sur votre recherche ...</Text>
 
       <Text style={styles.label}>Adresse</Text>
-      <View style={styles.placesWrapper}>
-        <GooglePlacesAutocomplete
-          placeholder="Votre adresse"
-          minLength={2}
-          fetchDetails
-          onPress={(data) => setLocation({ description: data.description })}
-          query={{ key: 'GOOGLE_PLACES_API_KEY', language: 'fr' }}
-          styles={{
-            textInput: styles.input,
-            container: { flex: 0 },
-          }}
-        />
-      </View>
-
-      <Text style={styles.label}>Métier recherché</Text>
       <View style={styles.inputWrapper}>
         <TextInput
           style={styles.input}
-          value={jobInput}
-          onChangeText={(text) => {
-            setJobInput(text)
-            setSelectedJob(text.length > 0 ? { label: text, value: null } : null)
-          }}
-          placeholder="Ex: Comptable"
+          value={locationQuery}
+          onChangeText={onChangeLocationQuery}
+          placeholder="Adresse, ville ..."
         />
       </View>
-      {jobInput.length > 0 && (
+      {locationSuggestions.length > 0 && (
         <View style={styles.suggestionsBox}>
-          {PLACEHOLDER_JOB_OPTIONS.filter((o) => o.label.toLowerCase().includes(jobInput.toLowerCase())).map((o) => (
-            <TouchableOpacity
-              key={o.value}
-              style={styles.suggestionRow}
-              onPress={() => {
-                setSelectedJob(o)
-                setJobInput(o.label)
-              }}
-            >
-              <Text>{o.label}</Text>
+          {locationSuggestions.map((place) => (
+            <TouchableOpacity key={place.id} style={styles.suggestionRow} onPress={() => onSelectLocation(place)}>
+              <Text>{place.name}</Text>
             </TouchableOpacity>
           ))}
         </View>
       )}
+
+      <AutocompleteInput
+        label="Métier recherché"
+        placeholder="Ex: Comptable"
+        options={jobsOptions}
+        onOptionSelect={(option) => setSelectedJob(option)}
+        onInputUpdate={(text) => {
+          // mirrors ProfileForm.vue's onInputUpdate: free-typed text becomes
+          // its own option (value: null) until a real suggestion is picked
+          setSelectedJob(text.length > 0 ? { label: text, value: null } : null)
+        }}
+      />
 
       <View style={styles.toggleRow}>
         <Text style={styles.toggleLabel}>Profil avec expérience en comptabilité</Text>
