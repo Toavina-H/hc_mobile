@@ -40,6 +40,8 @@ export const colors = {
   gold3: '#F3D9A5',
   gold4: '#E2A21F',
   gold5: '#5A400C',
+
+  gradientPrimary: ['rgba(142, 2, 189, 0.8)', 'rgba(99, 41, 246, 0.8)'],
 }
 
 export const theme = {
