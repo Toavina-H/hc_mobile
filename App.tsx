@@ -1,7 +1,8 @@
 // App.tsx
 import { createStaticNavigation, StaticParamList } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
-import { StatusBar, useColorScheme } from 'react-native'
+import { AuthProvider } from './src/components/Authentification'
+
 import AuthForm from './src/screens/authForm'
 import signupApplicantComplete from './src/screens/signupApplicantComplete'
 // TODO: create these screens
@@ -28,11 +29,9 @@ declare global {
 }
 
 export default function App() {
-  const isDarkMode = useColorScheme() === 'dark'
   return (
-    <>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+    <AuthProvider>
       <Navigation />
-    </>
+    </AuthProvider>
   )
 }
