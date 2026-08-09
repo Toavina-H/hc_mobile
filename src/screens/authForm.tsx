@@ -24,25 +24,12 @@ const TITLES: Record<AuthTab, string> = {
   'mot-de-passe-oublie': 'Mot de passe oublié',
 }
 
-const TAB_LABELS: Record<AuthTab, string> = {
-  connexion: 'Connexion',
-  inscription: 'Inscription',
-  'mot-de-passe-oublie': 'Mot de passe oublié',
-}
 
 export default function AuthForm() {
   const [activeTab, setActiveTab] = useState<AuthTab>('connexion')
   const loginOpacity = useRef(new Animated.Value(1)).current
   const registerOpacity = useRef(new Animated.Value(0)).current
   const forgotOpacity = useRef(new Animated.Value(0)).current
-  const scroll = activeTab !== 'connexion'
-
-  // Third tab only exists in the switcher while it's the active one —
-  // switching away removes it on the next render, no extra state to sync.
-  const visibleTabs: AuthTab[] =
-    activeTab === 'mot-de-passe-oublie'
-      ? ['connexion', 'inscription', 'mot-de-passe-oublie']
-      : ['connexion', 'inscription']
 
   const switchTab = (nextTab: AuthTab) => {
     if (nextTab === activeTab) return
