@@ -101,6 +101,58 @@ async function getAccessToken() {
   return await AsyncStorage.getItem(ACCESS_TOKEN_KEY)
 }
 
+// User management
+async function getCurrentUser() {
+  const token = await getAccessToken()
+  if (!token) return null
+  const res = await fetch(`${BASE_URL}/users/me`, {
+    headers: { 'x-api-key': API_KEY, Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) return null
+  return res.json()
+}
+
+// Asset management
+async function readAsset(id) {
+  const token = await getAccessToken()
+  const res = await fetch(`${BASE_URL}/assets/${id}`, {
+    headers: { 'x-api-key': API_KEY, Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error('Asset fetch failed')
+  return res.json()
+}
+
+async function createAsset(payload) {
+  const token = await getAccessToken()
+  const res = await fetch(`${BASE_URL}/assets`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': API_KEY,
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) throw new Error('Asset create failed')
+  return res.json()
+}
+
+
+async function updateAsset(id, payload) {
+  const token = await getAccessToken()
+  const res = await fetch(`${BASE_URL}/assets/${id}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': API_KEY,
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) throw new Error('Asset update failed')
+  return res.json()
+}
+
 // Others
 async function sendResetPasswordRequest({ username}) {
   const res = await fetch(`${BASE_URL}/password/reset/request`, {
@@ -116,7 +168,6 @@ async function sendResetPasswordRequest({ username}) {
 }
 
 const dataOptionsCache = {}
- 
 async function getDataLabelOptions({ label, query, key } = {}) {
   if (!label) return []
  
@@ -143,6 +194,8 @@ async function getDataLabelOptions({ label, query, key } = {}) {
 const stelace = {
   auth: { login, logout, signup },
   getAccessToken,
+  users: { getCurrent: getCurrentUser },
+  assets: { read: readAsset, create: createAsset, update: updateAsset },
   password: { resetRequest: sendResetPasswordRequest },
   data: { getDataLabelOptions },
 }
