@@ -62,7 +62,7 @@ export default function AutocompleteInput({
     <View>
       {label && <Text style={styles.label}>{label}</Text>}
       <View style={styles.inputWrapper}>
-        <TextInput style={styles.input} value={inputValue} onChangeText={handleChangeText} placeholder={placeholder} />
+        <TextInput style={styles.input} value={inputValue} onChangeText={handleChangeText} placeholder={placeholder} placeholderTextColor={theme.colors.grey4} />
       </View>
       {showSuggestions && filteredOptions.length > 0 && (
         <View style={styles.suggestionsBox}>
@@ -80,7 +80,7 @@ export default function AutocompleteInput({
 const styles = StyleSheet.create({
   label: { fontSize: 14, fontWeight: '600', marginBottom: 6, color: theme.colors.grey7 },
   inputWrapper: {
-    backgroundColor: theme.colors.grey3,
+    backgroundColor: theme.colors.grey2,
     borderRadius: 10,
     paddingHorizontal: 12,
     marginBottom: 16,

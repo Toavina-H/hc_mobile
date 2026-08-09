@@ -3,11 +3,8 @@ import { createStaticNavigation, StaticParamList } from '@react-navigation/nativ
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { StatusBar, useColorScheme } from 'react-native'
 import AuthForm from './src/screens/authForm'
+import signupApplicantComplete from './src/screens/signupApplicantComplete'
 // TODO: create these screens
-// import ForgotPasswordScreen from './src/screens/forgotPassword'
-// import CheckYourEmailScreen from './src/screens/checkYourEmail'
-// import HelpCenterScreen from './src/screens/helpCenter'
-// import ContactScreen from './src/screens/contact'
 // import NotificationsScreen from './src/screens/notifications'
 
 const rootStack = createNativeStackNavigator({
@@ -15,12 +12,8 @@ const rootStack = createNativeStackNavigator({
     headerShown: false,
   },
   screens: {
-    Auth: { screen: AuthForm }
-
-    // ForgotPassword: { screen: ForgotPasswordScreen },
-    // CheckYourEmail: { screen: CheckYourEmailScreen },
-    // HelpCenter: { screen: HelpCenterScreen },
-    // Contact: { screen: ContactScreen },
+    Auth: { screen: AuthForm },
+    SignupApplicantComplete: { screen: signupApplicantComplete }
     // Notifications: { screen: NotificationsScreen },
   },
 })
