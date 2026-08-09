@@ -35,6 +35,7 @@ function remapJobboardLabels(baseOptions: AutocompleteOption[]): AutocompleteOpt
   return result
 }
 
+
 export default function ProfileSetupScreen() {
   const navigation = useNavigation()
 
@@ -86,22 +87,22 @@ export default function ProfileSetupScreen() {
 
       // TODO: swap Date.now() placeholder id for the real userId once this screen
       // is wired up right after signup (needs currentUser context/store).
-      const fileKey = await aws.files.uploadFileToS3({
-        file: { uri: file.uri, name: file.name, type: file.type },
-        options: {
-          uploadFolder: 'files/resume',
-          uploadPrefix: 'resume',
-          contentType: 'application/pdf',
-          id: 'placeholder-user-id',
-        },
-      })
+      // const fileKey = await aws.files.uploadFileToS3({
+      //   file: { uri: file.uri, name: file.name, type: file.type },
+      //   options: {
+      //     uploadFolder: 'files/resume',
+      //     uploadPrefix: 'resume',
+      //     contentType: 'application/pdf',
+      //     id: id: currentUser?.id,,
+      //   },
+      // })
 
-      if (!fileKey) {
-        setResumeError(true)
-      } else {
-        setResumeFileKey(fileKey)
-        setResumeFileName(file.name)
-      }
+      // if (!fileKey) {
+      //   setResumeError(true)
+      // } else {
+      //   setResumeFileKey(fileKey)
+      //   setResumeFileName(file.name)
+      // }
     } catch (e: any) {
       // user cancelled the picker — not an error state
       if (e?.code !== 'DOCUMENTS_PICKER_CANCELED') setResumeError(true)
@@ -113,14 +114,22 @@ export default function ProfileSetupScreen() {
   const onSubmit = async () => {
     if (!isFormValid) return
     setLoading(true)
-    // TODO: wire real submit flow —
-    //  1. create/update the profile Asset (locations, customAttributes, metadata._resume)
-    //  2. attach resumeFileKey to metadata._files.resume
-    //  3. trigger Affinda parsing (later, per earlier decision to defer this)
-    setTimeout(() => {
-      setLoading(false)
-      setParsingSuccess(true)
-    }, 800)
+    const [currentUser, setCurrentUser] = useState<any | null>(null)
+    const [profileAsset, setProfileAsset] = useState<any | null>(null)
+
+    useEffect(() => {
+      stelace.users.getCurrent().then(async (user) => {
+        setCurrentUser(user)
+        if (!user) return
+
+        const profileAssetId = user?.metadata?._resume?.profileAssetId
+        if (profileAssetId) {
+          const asset = await stelace.assets.read(profileAssetId)
+          setProfileAsset(asset)
+          if (asset?.metadata?._files?.resumeNbParsing) setParsingSuccess(true)
+        }
+      })
+    }, [])
   }
 
   if (parsingSuccess) {
