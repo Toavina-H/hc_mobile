@@ -114,6 +114,7 @@ export default function ProfileSetupScreen() {
         setResumeFileName(file.name)
       }
     } catch (e: any) {
+      console.log(e)
       if (e?.code !== 'DOCUMENTS_PICKER_CANCELED') setResumeError(true)
     } finally {
       setResumeUploading(false)
@@ -149,7 +150,6 @@ export default function ProfileSetupScreen() {
         metadata: currentUser.metadata,
         platformData: { _analytics: { source: 'happycab', action: 'accountCreation' } },
       })
-
       const saved = await stelace.search.affindaParseProcess({
         userId: currentUser.id,
         payload: draftAsset,
@@ -162,6 +162,7 @@ export default function ProfileSetupScreen() {
         await refreshUser()
       }
     } catch (e) {
+      console.log(e)
       setResumeError(true)
     } finally {
       setLoading(false)
@@ -288,7 +289,7 @@ const styles = StyleSheet.create({
   card: {
     margin: 16, paddingBottom: 48, flexGrow: 1,
     borderRadius: 16,
-    backgroundColor: theme.colors.white,
+    backgroundColor: theme.colors.purple1,
     overflow: 'hidden',
     shadowColor: theme.colors.grey6,
     shadowOpacity: 0.06,

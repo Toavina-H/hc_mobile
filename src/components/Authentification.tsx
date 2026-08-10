@@ -4,7 +4,7 @@ import stelace from '../api/stelace'
 type AuthContextValue = {
   currentUser: any | null
   loading: boolean
-  refreshUser: () => Promise<void>
+  refreshUser: (userId?: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -13,8 +13,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<any | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const refreshUser = async () => {
-    const user = await stelace.users.getCurrent()
+  const refreshUser = async (userId?: string) => {
+    const user = await stelace.users.getCurrent(userId)
     setCurrentUser(user)
   }
 

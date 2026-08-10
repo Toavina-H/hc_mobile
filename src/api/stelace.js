@@ -102,13 +102,33 @@ async function getAccessToken() {
 }
 
 // User management
-async function getCurrentUser() {
+async function getCurrentUser(id) {
   const token = await getAccessToken()
   if (!token) return null
-  const res = await fetch(`${BASE_URL}/users/me`, {
+
+  if (!id) {
+    console.log('No user id') 
+    return
+  }
+  const res = await fetch(`${BASE_URL}/users/${id}`, {
     headers: { 'x-api-key': API_KEY, Authorization: `Bearer ${token}` },
   })
   if (!res.ok) return null
+  return res.json()
+}
+
+async function updateUser(id, data) {
+  const token = await getAccessToken()
+  const res = await fetch(`${BASE_URL}/users/${id}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': API_KEY,
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error('User update failed')
   return res.json()
 }
 
@@ -185,7 +205,7 @@ async function affindaParseProcess({
 const stelace = {
   auth: { login, logout, signup },
   getAccessToken,
-  users: { getCurrent: getCurrentUser },
+  users: { getCurrent: getCurrentUser, update: updateUser },
   assets: { read: readAsset },
   search: { affindaParseProcess },
   password: { resetRequest: sendResetPasswordRequest },
