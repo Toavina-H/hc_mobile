@@ -1,8 +1,4 @@
 // src/components/AutocompleteInput.tsx
-// Ported from the web AutocompleteInput.vue's behavior — not its Quasar internals.
-// Same contract: filters a locally-held `options` list once the query hits `minChars`,
-// reports raw typing via onInputUpdate and confirmed picks via onOptionSelect,
-// same as the Vue component's inputHandle/selectHandle split.
 
 import React, { useEffect, useState } from 'react'
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native'
@@ -34,8 +30,6 @@ export default function AutocompleteInput({
   const [inputValue, setInputValue] = useState(defaultValue?.label ?? '')
   const [showSuggestions, setShowSuggestions] = useState(false)
 
-  // Mirrors the Vue watch(props.defaultValue) — re-syncs the display text when
-  // the parent changes defaultValue from outside (e.g. loading an existing profile).
   useEffect(() => {
     setInputValue(defaultValue?.label ?? '')
   }, [defaultValue?.label])

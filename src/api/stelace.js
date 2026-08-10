@@ -29,7 +29,6 @@ async function signup({ user, noLogin = false }) {
     },
     body: JSON.stringify(createPayload),
   })
-  console.log(createRes.status, await createRes.clone().text())
   if (!createRes.ok) throw new Error('Signup failed')
   let stlUser = await createRes.json()
 
@@ -52,7 +51,7 @@ async function signup({ user, noLogin = false }) {
     if (updateRes.ok) stlUser = await updateRes.json()
   }
 
-  await fetch(`${BASE_URL}/events`, {
+  fetch(`${BASE_URL}/events`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

@@ -18,12 +18,6 @@ import {
 
 type AuthTab = 'connexion' | 'inscription' | 'mot-de-passe-oublie'
 
-const TITLES: Record<AuthTab, string> = {
-  connexion: 'Heureux de vous revoir !',
-  inscription: 'Bienvenue sur HappyCab !',
-  'mot-de-passe-oublie': 'Mot de passe oublié',
-}
-
 
 export default function AuthForm() {
   const [activeTab, setActiveTab] = useState<AuthTab>('connexion')

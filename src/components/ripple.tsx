@@ -1,4 +1,5 @@
 // src/components/Ripple.tsx
+// This component is used once for the style when switching active tab on authForm
 import React, { useRef, useState } from 'react'
 import { Pressable, Animated, StyleSheet, View, GestureResponderEvent, ViewStyle, StyleProp } from 'react-native'
 
@@ -37,14 +38,13 @@ export default function Ripple({ onPress, disabled, style, rippleColor = 'rgba(2
 
     setRipples((prev) => [...prev, { id, x: locationX, y: locationY, scale, opacity }])
 
-    // diameter needs to cover the farthest corner from the touch point
     const maxDist = Math.max(
       Math.hypot(locationX, locationY),
       Math.hypot(size.width - locationX, locationY),
       Math.hypot(locationX, size.height - locationY),
       Math.hypot(size.width - locationX, size.height - locationY),
     )
-    const targetScale = (maxDist * 2) / 40 // ripple base circle is 40px, scale up to cover
+    const targetScale = (maxDist * 2) / 40
 
     Animated.parallel([
       Animated.timing(scale, { toValue: targetScale, duration: 400, useNativeDriver: true }),
