@@ -23,7 +23,6 @@ function mapboxPlaceMapping(hit) {
   }
 }
 
-// countryCode: 'FR' | other ISO code — mirrors selectedCountry.code from the web component
 export async function searchPlaces(query, { countryCode = 'FR' } = {}) {
   if (!query || query.trim().length <= 2) return []
   if (!MAPBOX_SEARCH_URL || !MAPBOX_TOKEN) {

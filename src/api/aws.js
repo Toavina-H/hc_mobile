@@ -58,7 +58,6 @@ async function uploadFileToS3({ file, options = {} }) {
     const { body } = await policyRes.json()
     const S3Sign = parseS3Url(body)
 
-    // Step 2: convert the local file URI into a blob RN can PUT
     const fileBlob = await fetch(file.uri).then((r) => r.blob())
 
     const putHeaders = { 'Content-Type': contentType }
