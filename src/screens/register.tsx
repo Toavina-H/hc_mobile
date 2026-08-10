@@ -5,6 +5,7 @@ import { theme } from '../theme'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
 import HcButton from '../components/HcButton'
 import stelace from '../api/stelace'
+import { useAuth } from '../components/Authentification'
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Linking } from 'react-native'
 
 const PHONE_MAX_LENGTH = 20
@@ -34,41 +35,43 @@ export default function RegisterForm() {
     confirmPassword === password &&
     acceptedCgu
 
-const signup = async () => {
-    if (!isFormValid) {
-      setError('Merci de compléter tous les champs et d\u2019accepter les CGU')
-      return
+  const { refreshUser } = useAuth()
+  const signup = async () => {
+      if (!isFormValid) {
+        setError('Merci de compléter tous les champs et d\u2019accepter les CGU')
+        return
+      }
+      setError(null)
+      setLoading(true)
+      try {
+        const stlUser = await stelace.auth.signup({
+          user: {
+            firstname: firstName.trim(),
+            lastname: lastName.trim(),
+            email: email.trim(),
+            password,
+            roles: ['applicant'],
+            metadata: {
+              _private: {
+                phone: phone.trim(),
+              },
+            },
+            platformData: {
+              _private: {
+                version: 3,
+                cguAccepted: acceptedCgu,
+              },
+            },
+          },
+        })
+        await refreshUser(stlUser.id) 
+        navigation.navigate('SignupApplicantComplete')
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Inscription impossible')
+      } finally {
+        setLoading(false)
+      }
     }
-    setError(null)
-    setLoading(true)
-    try {
-      // await stelace.auth.signup({
-      //   user: {
-      //     firstname: firstName.trim(),
-      //     lastname: lastName.trim(),
-      //     email: email.trim(),
-      //     password,
-      //     roles: ['applicant'],
-      //     metadata: {
-      //       _private: {
-      //         phone: phone.trim(),
-      //       },
-      //     },
-      //     platformData: {
-      //       _private: {
-      //         version: 3,
-      //         cguAccepted: acceptedCgu,
-      //       },
-      //     },
-      //   },
-      // })
-      navigation.navigate('SignupApplicantComplete')
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Inscription impossible')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   return (
     <>
@@ -164,7 +167,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   inputIcon: { marginRight: 8 },
-  input: { flex: 1, paddingVertical: 14 },
+  input: { flex: 1, paddingVertical: 14, color: theme.colors.grey7 },
   charCount: { fontSize: 12, color: theme.colors.grey5, textAlign: 'right', marginTop: -12, marginBottom: 16 },
   userTypeRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
   userTypeButton: {
