@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "566418364984",
+    "project_id": "happycab-13957",
+    "storage_bucket": "happycab-13957.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:566418364984:android:fe84aa9dc391edd11564cd",
+        "android_client_info": {
+          "package_name": "com.hc_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyChSS6eGgIxdY2c9rxjvKuODMvI1hiWLM4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

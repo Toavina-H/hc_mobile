@@ -24,7 +24,7 @@ export default function LoginForm({ onForgotPassword }: { onForgotPassword: () =
     setLoading(true)
     try {
       await stelace.auth.login({ username, password })
-      navigation.navigate('Notifications')
+      navigation.navigate('Home')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Identifiants invalides')
     } finally {
