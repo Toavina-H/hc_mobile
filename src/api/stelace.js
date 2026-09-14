@@ -179,6 +179,15 @@ async function getDataLabelOptions({ label, query, key } = {}) {
   return opts
 }
 
+/**
+ * @param {object} [options]
+ * @param {string} [options.assetId]
+ * @param {string} [options.userId]
+ * @param {object} [options.payload]
+ * @param {boolean} [options.standalone]
+ * @param {string} [options.s3FullPath]
+ * @param {boolean} [options.skipParse]
+ */
 async function affindaParseProcess({
   assetId = undefined,
   userId = undefined,
