@@ -176,7 +176,7 @@ export default function ProfileSetupScreen() {
           Nous avons bien reçu votre CV et construit votre profil après extraction des informations de celui-ci.
           Vous pouvez aller consulter votre tableau de bord.
         </Text>
-        <HcButton title="Tableau de bord" onPress={() => navigation.navigate('Notifications')} style={{ marginTop: 16 }} />
+        <HcButton title="Tableau de bord" onPress={() => navigation.navigate('Home')} style={{ marginTop: 16 }} />
       </ScrollView>
     )
   }
