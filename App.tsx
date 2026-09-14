@@ -13,8 +13,8 @@ import ApplicationsScreen from './src/screens/applications'
 import OfferScreen from './src/screens/offer'
 import MessagesScreen from './src/screens/messages'
 import { MOCK_CONVERSATIONS } from './src/mocks/messages'
-// TODO: create these screens
-// import NotificationsScreen from './src/screens/notifications'
+import NotificationsScreen from './src/screens/notifications'
+import { MOCK_NOTIFICATIONS } from './src/mocks/notifications'
 
 const tabIcon =
   (name: string) =>
@@ -41,7 +41,15 @@ const homeTabs = createBottomTabNavigator({
         tabBarBadge: MOCK_CONVERSATIONS.filter(c => c.unreadCount > 0).length || undefined,
       },
     },
-    // Notifications: { screen: NotificationsScreen },
+    Notifications: {
+      screen: NotificationsScreen,
+      options: {
+        title: 'Notifications',
+        tabBarIcon: tabIcon('bell-outline'),
+        // TODO: use the unread count from the API; NotificationsScreen keeps it in sync once mounted
+        tabBarBadge: MOCK_NOTIFICATIONS.filter(n => !n.read).length || undefined,
+      },
+    },
   },
 })
 
