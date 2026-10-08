@@ -127,7 +127,7 @@ async function updateUser(id, data) {
     },
     body: JSON.stringify(data),
   })
-  if (!res.ok) throw new Error('User update failed')
+  if (!res.ok) throw new Error(`User update failed (${res.status}): ${await res.text()}`)
   return res.json()
 }
 

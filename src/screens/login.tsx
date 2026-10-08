@@ -5,6 +5,7 @@ import stelace from '../api/stelace'
 import { theme } from '../theme'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
 import HcButton from '../components/HcButton'
+import { requestNotificationPermission, registerFcmToken } from '../helpers/pushNotifications'
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native'
 
 export default function LoginForm({ onForgotPassword }: { onForgotPassword: () => void }) {
@@ -23,7 +24,12 @@ export default function LoginForm({ onForgotPassword }: { onForgotPassword: () =
     setError(null)
     setLoading(true)
     try {
-      await stelace.auth.login({ username, password })
+      const { userId } = await stelace.auth.login({ username, password })
+      try {
+        if (await requestNotificationPermission()) await registerFcmToken(userId)
+      } catch (e) {
+        console.log('Push registration failed:', e)
+      }
       navigation.navigate('Home')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Identifiants invalides')

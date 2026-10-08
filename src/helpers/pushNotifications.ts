@@ -12,11 +12,15 @@ export async function requestNotificationPermission(): Promise<boolean> {
   return true // TO DO: iOS is set up separately later
 }
 
-export async function registerFcmToken(user: any): Promise<() => void> {
+export async function registerFcmToken(userId: string): Promise<() => void> {
   const messaging = getMessaging()
   const saveToken = (token: string) =>
-    stelace.users.update(user.id, {
-      platformData: { ...user.platformData, _fcmToken: token },
+    stelace.users.update(userId, {
+      metadata: {
+        _private: {
+          pushTokens: { [token]: { platform: Platform.OS, updatedDate: new Date().toISOString() } },
+        },
+      },
     })
 
   const token = await getToken(messaging)
