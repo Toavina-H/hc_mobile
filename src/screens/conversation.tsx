@@ -18,7 +18,7 @@ import { theme } from '../theme'
 import stelace from '../api/stelace'
 import { useAuth } from '../components/Authentification'
 import ConversationAvatar from '../components/ConversationAvatar'
-import { getMyIds } from '../helpers/inbox'
+import { avatarUrl, getMyIds } from '../helpers/inbox'
 import { htmlToText, textToHtml } from '../helpers/html'
 
 type Props = StaticScreenProps<{ interlocutorId: string; name: string; subtitle?: string; avatar?: string | null }>
@@ -59,6 +59,24 @@ export default function ConversationScreen({ route }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
+  const [myAvatar, setMyAvatar] = useState<string | null>(null)
+
+  // Own avatar: applicants keep their photo on their profile asset (hc-core's $uElements('profileAsset'))
+  useEffect(() => {
+    setMyAvatar(avatarUrl(currentUser))
+    const profileAssetId = currentUser?.metadata?._resume?.profileAssetId
+    if (!profileAssetId) return
+    let cancelled = false
+    stelace.assets
+      .read(profileAssetId)
+      .then((asset: any) => {
+        if (!cancelled) setMyAvatar(avatarUrl({ ...currentUser, profileAsset: asset }))
+      })
+      .catch(console.warn)
+    return () => {
+      cancelled = true
+    }
+  }, [currentUser])
 
   const fetchMessages = useCallback(async () => {
     if (!currentUser?.id) return
@@ -112,6 +130,7 @@ export default function ConversationScreen({ route }: Props) {
 
   function renderItem({ item, index }: { item: any; index: number }) {
     const fromMe = myIds.includes(item.senderId)
+    const myName = [currentUser?.firstname, currentUser?.lastname].filter(Boolean).join(' ') || 'Moi'
     // Inverted list: the next item is the previous message in time
     const previous = messages[index + 1]
     const showDay = !previous || dayKey(previous.createdDate) !== dayKey(item.createdDate)
@@ -119,11 +138,30 @@ export default function ConversationScreen({ route }: Props) {
     return (
       <View>
         {showDay && <Text style={styles.day}>{formatDay(item.createdDate)}</Text>}
-        <View style={[styles.bubble, fromMe ? styles.bubbleMine : styles.bubbleTheirs]}>
-          <Text style={[styles.bubbleText, fromMe && styles.bubbleTextMine]}>
-            {htmlToText(item.content ?? '', { keepLineBreaks: true })}
-          </Text>
-          <Text style={[styles.bubbleTime, fromMe && styles.bubbleTimeMine]}>{formatHour(item.createdDate)}</Text>
+        <View style={[styles.row, fromMe && styles.rowMine]}>
+          <ConversationAvatar
+            id={item.senderId}
+            name={fromMe ? myName : name}
+            uri={fromMe ? myAvatar : avatar}
+            size={28}
+          />
+          <View style={[styles.bubble, fromMe ? styles.bubbleMine : styles.bubbleTheirs]}>
+            <Text style={[styles.bubbleText, fromMe && styles.bubbleTextMine]}>
+              {htmlToText(item.content ?? '', { keepLineBreaks: true })}
+            </Text>
+            <View style={styles.bubbleMeta}>
+              <Text style={[styles.bubbleTime, fromMe && styles.bubbleTimeMine]}>{formatHour(item.createdDate)}</Text>
+              {/* Seen marker on my messages, like hc-core's done_all icon */}
+              {fromMe && (
+                <Icon
+                  name={item.read ? 'check-all' : 'check'}
+                  size={14}
+                  color={item.read ? theme.colors.white : theme.colors.purple2}
+                  accessibilityLabel={item.read ? 'Vu' : 'Envoyé'}
+                />
+              )}
+            </View>
+          </View>
         </View>
       </View>
     )
@@ -231,22 +269,35 @@ const styles = StyleSheet.create({
     color: theme.colors.grey5,
     marginVertical: 12,
   },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+    marginVertical: 3,
+  },
+  rowMine: {
+    flexDirection: 'row-reverse',
+  },
   bubble: {
-    maxWidth: '80%',
+    maxWidth: '75%',
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    marginVertical: 3,
   },
   bubbleMine: {
-    alignSelf: 'flex-end',
     backgroundColor: theme.colors.primary,
     borderBottomRightRadius: 4,
   },
   bubbleTheirs: {
-    alignSelf: 'flex-start',
     backgroundColor: theme.colors.white,
     borderBottomLeftRadius: 4,
+  },
+  bubbleMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    gap: 3,
+    marginTop: 4,
   },
   bubbleText: {
     fontSize: 14,
@@ -257,10 +308,8 @@ const styles = StyleSheet.create({
     color: theme.colors.white,
   },
   bubbleTime: {
-    alignSelf: 'flex-end',
     fontSize: 10,
     color: theme.colors.grey4,
-    marginTop: 4,
   },
   bubbleTimeMine: {
     color: theme.colors.purple2,

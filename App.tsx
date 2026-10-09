@@ -12,6 +12,7 @@ import signupApplicantComplete from './src/screens/signupApplicantComplete'
 import ApplicationsScreen from './src/screens/applications'
 import OfferScreen from './src/screens/offer'
 import MessagesScreen from './src/screens/messages'
+import ConversationScreen from './src/screens/conversation'
 import NotificationsScreen from './src/screens/notifications'
 import { MOCK_NOTIFICATIONS } from './src/mocks/notifications'
 
@@ -59,6 +60,7 @@ const rootStack = createNativeStackNavigator({
     SignupApplicantComplete: { screen: signupApplicantComplete },
     Home: { screen: homeTabs },
     Offer: { screen: OfferScreen },
+    Conversation: { screen: ConversationScreen },
   },
 })
 
