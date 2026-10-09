@@ -9,6 +9,7 @@ import { theme } from '../theme'
 import stelace from '../api/stelace'
 import { useAuth } from '../components/Authentification'
 import { buildInbox, InboxConversation } from '../helpers/inbox'
+import { htmlToText } from '../helpers/html'
 
 type Conversation = {
   id: string
@@ -76,7 +77,7 @@ function toConversation(conv: InboxConversation, myIds: string[]): Conversation 
     id: conv.interlocutorId,
     name: interlocutorName(conv.interlocutor) || 'Interlocuteur inconnu',
     subtitle: role ?? '',
-    lastMessage: lastMessage?.content ?? '',
+    lastMessage: htmlToText(lastMessage?.content ?? ''),
     fromMe: !!lastMessage && myIds.includes(lastMessage.senderId),
     yourTurn: !!lastMessage && !myIds.includes(lastMessage.senderId),
     time: formatTime(lastMessage?.createdDate),
