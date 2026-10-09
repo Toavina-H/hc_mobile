@@ -4,7 +4,7 @@ import { createStaticNavigation, StaticParamList } from '@react-navigation/nativ
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
-import { AuthProvider } from './src/components/Authentification'
+import { AuthProvider, useAuth } from './src/components/Authentification'
 import { theme } from './src/theme'
 
 import AuthForm from './src/screens/authForm'
@@ -71,10 +71,19 @@ declare global {
   }
 }
 
+function RootNavigation() {
+  const { currentUser, loading } = useAuth()
+
+  // Wait for the stored session to be restored, since initialState is only read on mount
+  if (loading) return null
+
+  return <Navigation initialState={currentUser ? { routes: [{ name: 'Home' }] } : undefined} />
+}
+
 export default function App() {
   return (
     <AuthProvider>
-      <Navigation />
+      <RootNavigation />
     </AuthProvider>
   )
 }
