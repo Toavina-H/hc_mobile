@@ -1,14 +1,34 @@
+/* global TextEncoder, btoa */ // provided by Hermes
 import Config from "react-native-config"
 
 const AWS_API_GATEWAY_URL = Config.AWS_API_GATEWAY_URL
 const AWS_S3_URL = Config.AWS_S3_URL
 const AWS_CDN_UPLOAD_PREFIX = Config.AWS_CDN_UPLOAD_PREFIX
+const AWS_CDN_S3_BUCKET = Config.AWS_CDN_S3_BUCKET
+const AWS_CDN_WITH_IMAGE_HANDLER_URL = Config.AWS_CDN_WITH_IMAGE_HANDLER_URL
 
 const API_KEY = Config.STELACE_PUBLISHABLE_API_KEY
 
 export function sanitizeFilename (val) {
   val = val.normalize('NFD').replaceAll(/[\u0300-\u036F]/g, '').replaceAll('&nbsp;', '').trim().replaceAll(/\s+/g, '_').replaceAll(/['’]/g, '_').replaceAll(/[^a-zA-Z0-9_-]/g, '').replaceAll(/_+/g, '_')
   return val
+}
+
+export function cdnImg (cdnPath, opt = {}) {
+  const lossless = opt.lossless ?? false
+  const payload = {
+    bucket: AWS_CDN_S3_BUCKET,
+    key: decodeURIComponent(`${AWS_CDN_UPLOAD_PREFIX}/${(cdnPath ?? 'platform/branding/placeholder.jpg').replaceAll(/^\//g, '')}`),
+    edits: {
+      resize: { width: opt.width, height: opt.height, fit: opt.fit ?? 'cover' },
+      webp: { quality: lossless ? 100 : opt.quality ?? 85, lossless }
+    },
+    ...(opt.noCache ? { cacheBuster: Date.now() } : {})
+  }
+  const bytes = new TextEncoder().encode(JSON.stringify(payload))
+  let binary = ''
+  for (const b of bytes) binary += String.fromCharCode(b)
+  return `${AWS_CDN_WITH_IMAGE_HANDLER_URL}${btoa(binary)}`
 }
 
 function cleanPrefix(prefix = '') {

@@ -7,6 +7,7 @@ const API_KEY = Config.STELACE_PUBLISHABLE_API_KEY
 
 const ACCESS_TOKEN_KEY = 'stelace_access_token'
 const REFRESH_TOKEN_KEY = 'stelace_refresh_token'
+const USER_ID_KEY = 'stelace_user_id'
 
 async function signup({ user, noLogin = false }) {
   const payload = { ...user }
@@ -87,6 +88,7 @@ async function login({ username, password }) {
 
   await AsyncStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken)
   await AsyncStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken)
+  await AsyncStorage.setItem(USER_ID_KEY, tokens.userId)
 
   return tokens
 }
@@ -94,10 +96,50 @@ async function login({ username, password }) {
 async function logout() {
   await AsyncStorage.removeItem(ACCESS_TOKEN_KEY)
   await AsyncStorage.removeItem(REFRESH_TOKEN_KEY)
+  await AsyncStorage.removeItem(USER_ID_KEY)
 }
 
 async function getAccessToken() {
   return await AsyncStorage.getItem(ACCESS_TOKEN_KEY)
+}
+
+let refreshPromise = null
+
+async function refreshAccessToken() {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY)
+      if (!refreshToken) return null
+      const res = await fetch(`${BASE_URL}/auth/token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': API_KEY,
+        },
+        body: JSON.stringify({ grantType: 'refreshToken', refreshToken }),
+      })
+      if (!res.ok) return null
+      const { accessToken } = await res.json()
+      await AsyncStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
+      return accessToken
+    })().finally(() => { refreshPromise = null })
+  }
+  return refreshPromise
+}
+
+// The API silently ignores an expired access token and falls back to the publishable key's
+// public role, so expiry surfaces as a 403 (not 401): refresh the token and retry once.
+async function authFetch(url, { headers, ...options } = {}) {
+  const send = (token) => fetch(url, {
+    ...options,
+    headers: { ...headers, 'x-api-key': API_KEY, Authorization: `Bearer ${token}` },
+  })
+  let res = await send(await getAccessToken())
+  if (res.status === 401 || res.status === 403) {
+    const token = await refreshAccessToken()
+    if (token) res = await send(token)
+  }
+  return res
 }
 
 // User management
@@ -105,25 +147,22 @@ async function getCurrentUser(id) {
   const token = await getAccessToken()
   if (!token) return null
 
+  // Without an id, fall back to the logged-in user (restores the session on app start)
+  if (!id) id = await AsyncStorage.getItem(USER_ID_KEY)
   if (!id) {
-    console.log('No user id') 
+    console.log('No user id')
     return
   }
-  const res = await fetch(`${BASE_URL}/users/${id}`, {
-    headers: { 'x-api-key': API_KEY, Authorization: `Bearer ${token}` },
-  })
+  const res = await authFetch(`${BASE_URL}/users/${id}`)
   if (!res.ok) return null
   return res.json()
 }
 
 async function updateUser(id, data) {
-  const token = await getAccessToken()
-  const res = await fetch(`${BASE_URL}/users/${id}`, {
+  const res = await authFetch(`${BASE_URL}/users/${id}`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': API_KEY,
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(data),
   })
@@ -131,13 +170,77 @@ async function updateUser(id, data) {
   return res.json()
 }
 
+async function listUsers(ids) {
+  if (!ids.length) return []
+  const params = new URLSearchParams({ id: ids.join(','), nbResultsPerPage: '100' })
+  const res = await authFetch(`${BASE_URL}/users?${params.toString()}`)
+  if (!res.ok) throw new Error(`Users fetch failed (${res.status})`)
+  const { results } = await res.json()
+  return results
+}
+
 // Asset management
 async function readAsset(id) {
-  const token = await getAccessToken()
-  const res = await fetch(`${BASE_URL}/assets/${id}`, {
-    headers: { 'x-api-key': API_KEY, Authorization: `Bearer ${token}` },
-  })
+  const res = await authFetch(`${BASE_URL}/assets/${id}`)
   if (!res.ok) throw new Error('Asset fetch failed')
+  return res.json()
+}
+
+async function listAssets(ids) {
+  if (!ids.length) return []
+  const params = new URLSearchParams({ id: ids.join(','), nbResultsPerPage: '50' })
+  const res = await authFetch(`${BASE_URL}/assets?${params.toString()}`)
+  if (!res.ok) throw new Error(`Assets fetch failed (${res.status})`)
+  const { results } = await res.json()
+  return results
+}
+
+// Message management
+async function listMessages({ userId, page = 1, nbResultsPerPage = 100 } = {}) {
+  const params = new URLSearchParams({
+    userId,
+    page: String(page),
+    nbResultsPerPage: String(nbResultsPerPage),
+    orderBy: 'createdDate',
+    order: 'desc',
+  })
+  const res = await authFetch(`${BASE_URL}/messages?${params.toString()}`)
+  if (!res.ok) throw new Error(`Messages fetch failed (${res.status})`)
+  const { results } = await res.json()
+  return results
+}
+
+async function listAllMessages({ userId }) {
+  const nbResultsPerPage = 100
+  let all = []
+  for (let page = 1; ; page++) {
+    const results = await listMessages({ userId, page, nbResultsPerPage })
+    all = all.concat(results)
+    if (results.length < nbResultsPerPage) return all
+  }
+}
+
+async function createMessage({ topicId, conversationId, receiverId, content }) {
+  const res = await authFetch(`${BASE_URL}/messages`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ topicId, conversationId, receiverId, content }),
+  })
+  if (!res.ok) throw new Error(`Message creation failed (${res.status})`)
+  return res.json()
+}
+
+async function markMessageAsRead(id) {
+  const res = await authFetch(`${BASE_URL}/messages/${id}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ read: true }),
+  })
+  if (!res.ok) throw new Error('Message update failed')
   return res.json()
 }
 
@@ -196,13 +299,10 @@ async function affindaParseProcess({
   s3FullPath = undefined,
   skipParse = false,
 } = {}) {
-  const token = await getAccessToken()
-  const res = await fetch(`${BASE_URL}/integrations/affinda/parseprocess`, {
+  const res = await authFetch(`${BASE_URL}/integrations/affinda/parseprocess`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': API_KEY,
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ assetId, userId, payload, standalone, s3FullPath, skipParse }),
   })
@@ -213,8 +313,9 @@ async function affindaParseProcess({
 const stelace = {
   auth: { login, logout, signup },
   getAccessToken,
-  users: { getCurrent: getCurrentUser, update: updateUser },
-  assets: { read: readAsset },
+  users: { getCurrent: getCurrentUser, update: updateUser, list: listUsers },
+  assets: { read: readAsset, list: listAssets },
+  messages: { listAll: listAllMessages, create: createMessage, markAsRead: markMessageAsRead },
   search: { affindaParseProcess },
   password: { resetRequest: sendResetPasswordRequest },
   data: { getDataLabelOptions },

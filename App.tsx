@@ -4,7 +4,7 @@ import { createStaticNavigation, StaticParamList } from '@react-navigation/nativ
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
-import { AuthProvider } from './src/components/Authentification'
+import { AuthProvider, useAuth } from './src/components/Authentification'
 import { theme } from './src/theme'
 
 import AuthForm from './src/screens/authForm'
@@ -12,7 +12,7 @@ import signupApplicantComplete from './src/screens/signupApplicantComplete'
 import ApplicationsScreen from './src/screens/applications'
 import OfferScreen from './src/screens/offer'
 import MessagesScreen from './src/screens/messages'
-import { MOCK_CONVERSATIONS } from './src/mocks/messages'
+import ConversationScreen from './src/screens/conversation'
 import NotificationsScreen from './src/screens/notifications'
 import { MOCK_NOTIFICATIONS } from './src/mocks/notifications'
 
@@ -37,8 +37,6 @@ const homeTabs = createBottomTabNavigator({
       options: {
         title: 'Messages',
         tabBarIcon: tabIcon('message-text-outline'),
-        // TODO: use the unread count from the API; MessagesScreen keeps it in sync once mounted
-        tabBarBadge: MOCK_CONVERSATIONS.filter(c => c.unreadCount > 0).length || undefined,
       },
     },
     Notifications: {
@@ -62,6 +60,7 @@ const rootStack = createNativeStackNavigator({
     SignupApplicantComplete: { screen: signupApplicantComplete },
     Home: { screen: homeTabs },
     Offer: { screen: OfferScreen },
+    Conversation: { screen: ConversationScreen },
   },
 })
 
@@ -74,10 +73,18 @@ declare global {
   }
 }
 
+function RootNavigation() {
+  const { currentUser, loading } = useAuth()
+
+  if (loading) return null
+
+  return <Navigation initialState={currentUser ? { routes: [{ name: 'Home' }] } : undefined} />
+}
+
 export default function App() {
   return (
     <AuthProvider>
-      <Navigation />
+      <RootNavigation />
     </AuthProvider>
   )
 }
