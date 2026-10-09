@@ -8,12 +8,14 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
 import { theme } from '../theme'
 import stelace from '../api/stelace'
 import { useAuth } from '../components/Authentification'
-import { buildInbox, InboxConversation } from '../helpers/inbox'
+import ConversationAvatar from '../components/ConversationAvatar'
+import { avatarUrl, buildInbox, getMyIds, interlocutorName, profileAssetIds, InboxConversation } from '../helpers/inbox'
 import { htmlToText } from '../helpers/html'
 
 type Conversation = {
   id: string
   name: string
+  avatar: string | null
   subtitle: string
   lastMessage: string
   fromMe: boolean
@@ -23,30 +25,7 @@ type Conversation = {
   unreadMessageIds: string[]
 }
 
-const AVATAR_COLORS = [
-  { bg: theme.colors.purple2, color: theme.colors.purple4 },
-  { bg: theme.colors.blue2, color: theme.colors.blue5 },
-  { bg: theme.colors.green2, color: theme.colors.green5 },
-  { bg: theme.colors.gold2, color: theme.colors.gold5 },
-  { bg: theme.colors.red2, color: theme.colors.red5 },
-]
-
 const WEEKDAYS = ['Dim.', 'Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.']
-
-function initials(name: string) {
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, 2)
-    .map(word => word[0].toUpperCase())
-    .join('')
-}
-
-function avatarColor(id: string) {
-  let hash = 0
-  for (const char of id) hash = (hash + char.charCodeAt(0)) % AVATAR_COLORS.length
-  return AVATAR_COLORS[hash]
-}
 
 function pad(n: number) {
   return String(n).padStart(2, '0')
@@ -63,12 +42,6 @@ function formatTime(iso?: string) {
   return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}`
 }
 
-function interlocutorName(interlocutor: any) {
-  if (!interlocutor) return ''
-  const fullName = [interlocutor.firstname, interlocutor.lastname].filter(Boolean).join(' ')
-  return interlocutor.displayName || fullName
-}
-
 function toConversation(conv: InboxConversation, myIds: string[]): Conversation {
   const lastMessage = conv.messages[0]
   const role = conv.interlocutor?.metadata?._public?.role
@@ -76,6 +49,7 @@ function toConversation(conv: InboxConversation, myIds: string[]): Conversation 
   return {
     id: conv.interlocutorId,
     name: interlocutorName(conv.interlocutor) || 'Interlocuteur inconnu',
+    avatar: avatarUrl(conv.interlocutor),
     subtitle: role ?? '',
     lastMessage: htmlToText(lastMessage?.content ?? ''),
     fromMe: !!lastMessage && myIds.includes(lastMessage.senderId),
@@ -96,10 +70,7 @@ export default function MessagesScreen() {
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
   const requestId = useRef(0)
 
-  const myIds = useMemo(
-    () => (currentUser?.id ? [currentUser.id, ...Object.keys(currentUser.organizations ?? {})] : []),
-    [currentUser],
-  )
+  const myIds = useMemo(() => getMyIds(currentUser), [currentUser])
 
   const unreadCount = conversations.filter(c => c.unreadCount > 0).length
 
@@ -119,7 +90,26 @@ export default function MessagesScreen() {
       const interlocutorIds = participantIds.filter(userId => !myIds.includes(userId))
       const users = await stelace.users.list(interlocutorIds)
       if (id !== requestId.current) return // a newer request superseded this one
-      setConversations(buildInbox(messages, users, myIds).map(conv => toConversation(conv, myIds)))
+      const inbox = buildInbox(messages, users, myIds)
+      // 1) Display conversations immediately, without waiting for profile pictures
+      setConversations(inbox.map(conv => toConversation(conv, myIds)))
+
+      // 2) Load applicants' profile assets in the background and patch avatars when they arrive
+      const assetIds = profileAssetIds(inbox)
+      if (assetIds.length > 0) {
+        stelace.assets
+          .list(assetIds)
+          .then((assets: any[]) => {
+            if (id !== requestId.current) return
+            const avatars = new Map<string, string | null>()
+            for (const conv of inbox) {
+              const asset = assets.find(a => a.ownerId === conv.interlocutorId)
+              if (asset) avatars.set(conv.interlocutorId, avatarUrl({ ...conv.interlocutor, profileAsset: asset }))
+            }
+            setConversations(prev => prev.map(c => (avatars.get(c.id) ? { ...c, avatar: avatars.get(c.id)! } : c)))
+          })
+          .catch(console.warn)
+      }
     } catch (e) {
       if (id !== requestId.current) return
       console.warn(e)
@@ -162,22 +152,24 @@ export default function MessagesScreen() {
   }
 
   function openConversation(item: Conversation) {
-    markAsRead(item.unreadMessageIds)
+    // The thread marks its messages as read on the server, only update the badge here
     setConversations(prev =>
       prev.map(c => (c.id === item.id ? { ...c, unreadCount: 0, unreadMessageIds: [] } : c)),
     )
-    // TODO: navigate to the conversation thread once it exists
+    navigation.navigate('Conversation', {
+      interlocutorId: item.id,
+      name: item.name,
+      subtitle: item.subtitle,
+      avatar: item.avatar,
+    })
   }
 
   function renderItem({ item }: { item: Conversation }) {
-    const avatar = avatarColor(item.id)
     const unread = item.unreadCount > 0
 
     return (
       <TouchableOpacity style={styles.item} activeOpacity={0.7} onPress={() => openConversation(item)}>
-        <View style={[styles.avatar, { backgroundColor: avatar.bg }]}>
-          <Text style={[styles.avatarText, { color: avatar.color }]}>{initials(item.name)}</Text>
-        </View>
+        <ConversationAvatar id={item.id} name={item.name} uri={item.avatar} />
 
         <View style={styles.itemBody}>
           <View style={styles.itemTopRow}>
@@ -395,17 +387,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.colors.grey2,
     gap: 12,
-  },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    fontSize: 16,
-    fontWeight: '700',
   },
   itemBody: {
     flex: 1,
