@@ -24,7 +24,6 @@ export async function registerFcmToken(userId: string): Promise<() => void> {
     })
 
   const token = await getToken(messaging)
-  console.log('FCM token:', token) // copy this to send a test push
   await saveToken(token)
 
   return onTokenRefresh(messaging, saveToken) // returns a function to stop listening
