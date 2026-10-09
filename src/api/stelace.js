@@ -103,6 +103,46 @@ async function getAccessToken() {
   return await AsyncStorage.getItem(ACCESS_TOKEN_KEY)
 }
 
+let refreshPromise = null
+
+// Concurrent callers share a single refresh request
+async function refreshAccessToken() {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY)
+      if (!refreshToken) return null
+      const res = await fetch(`${BASE_URL}/auth/token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': API_KEY,
+        },
+        body: JSON.stringify({ grantType: 'refreshToken', refreshToken }),
+      })
+      if (!res.ok) return null
+      const { accessToken } = await res.json()
+      await AsyncStorage.setItem(ACCESS_TOKEN_KEY, accessToken)
+      return accessToken
+    })().finally(() => { refreshPromise = null })
+  }
+  return refreshPromise
+}
+
+// The API silently ignores an expired access token and falls back to the publishable key's
+// public role, so expiry surfaces as a 403 (not 401): refresh the token and retry once.
+async function authFetch(url, { headers, ...options } = {}) {
+  const send = (token) => fetch(url, {
+    ...options,
+    headers: { ...headers, 'x-api-key': API_KEY, Authorization: `Bearer ${token}` },
+  })
+  let res = await send(await getAccessToken())
+  if (res.status === 401 || res.status === 403) {
+    const token = await refreshAccessToken()
+    if (token) res = await send(token)
+  }
+  return res
+}
+
 // User management
 async function getCurrentUser(id) {
   const token = await getAccessToken()
@@ -114,21 +154,16 @@ async function getCurrentUser(id) {
     console.log('No user id')
     return
   }
-  const res = await fetch(`${BASE_URL}/users/${id}`, {
-    headers: { 'x-api-key': API_KEY, Authorization: `Bearer ${token}` },
-  })
+  const res = await authFetch(`${BASE_URL}/users/${id}`)
   if (!res.ok) return null
   return res.json()
 }
 
 async function updateUser(id, data) {
-  const token = await getAccessToken()
-  const res = await fetch(`${BASE_URL}/users/${id}`, {
+  const res = await authFetch(`${BASE_URL}/users/${id}`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': API_KEY,
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify(data),
   })
@@ -138,11 +173,8 @@ async function updateUser(id, data) {
 
 async function listUsers(ids) {
   if (!ids.length) return []
-  const token = await getAccessToken()
   const params = new URLSearchParams({ id: ids.join(','), nbResultsPerPage: '100' })
-  const res = await fetch(`${BASE_URL}/users?${params.toString()}`, {
-    headers: { 'x-api-key': API_KEY, Authorization: `Bearer ${token}` },
-  })
+  const res = await authFetch(`${BASE_URL}/users?${params.toString()}`)
   if (!res.ok) throw new Error(`Users fetch failed (${res.status})`)
   const { results } = await res.json()
   return results
@@ -150,21 +182,15 @@ async function listUsers(ids) {
 
 // Asset management
 async function readAsset(id) {
-  const token = await getAccessToken()
-  const res = await fetch(`${BASE_URL}/assets/${id}`, {
-    headers: { 'x-api-key': API_KEY, Authorization: `Bearer ${token}` },
-  })
+  const res = await authFetch(`${BASE_URL}/assets/${id}`)
   if (!res.ok) throw new Error('Asset fetch failed')
   return res.json()
 }
 
 async function listAssets(ids) {
   if (!ids.length) return []
-  const token = await getAccessToken()
   const params = new URLSearchParams({ id: ids.join(','), nbResultsPerPage: '50' })
-  const res = await fetch(`${BASE_URL}/assets?${params.toString()}`, {
-    headers: { 'x-api-key': API_KEY, Authorization: `Bearer ${token}` },
-  })
+  const res = await authFetch(`${BASE_URL}/assets?${params.toString()}`)
   if (!res.ok) throw new Error(`Assets fetch failed (${res.status})`)
   const { results } = await res.json()
   return results
@@ -172,7 +198,6 @@ async function listAssets(ids) {
 
 // Message management
 async function listMessages({ userId, page = 1, nbResultsPerPage = 100 } = {}) {
-  const token = await getAccessToken()
   const params = new URLSearchParams({
     userId,
     page: String(page),
@@ -180,9 +205,7 @@ async function listMessages({ userId, page = 1, nbResultsPerPage = 100 } = {}) {
     orderBy: 'createdDate',
     order: 'desc',
   })
-  const res = await fetch(`${BASE_URL}/messages?${params.toString()}`, {
-    headers: { 'x-api-key': API_KEY, Authorization: `Bearer ${token}` },
-  })
+  const res = await authFetch(`${BASE_URL}/messages?${params.toString()}`)
   if (!res.ok) throw new Error(`Messages fetch failed (${res.status})`)
   const { results } = await res.json()
   return results
@@ -200,13 +223,10 @@ async function listAllMessages({ userId }) {
 }
 
 async function createMessage({ topicId, conversationId, receiverId, content }) {
-  const token = await getAccessToken()
-  const res = await fetch(`${BASE_URL}/messages`, {
+  const res = await authFetch(`${BASE_URL}/messages`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': API_KEY,
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ topicId, conversationId, receiverId, content }),
   })
@@ -215,13 +235,10 @@ async function createMessage({ topicId, conversationId, receiverId, content }) {
 }
 
 async function markMessageAsRead(id) {
-  const token = await getAccessToken()
-  const res = await fetch(`${BASE_URL}/messages/${id}`, {
+  const res = await authFetch(`${BASE_URL}/messages/${id}`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': API_KEY,
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ read: true }),
   })
@@ -284,13 +301,10 @@ async function affindaParseProcess({
   s3FullPath = undefined,
   skipParse = false,
 } = {}) {
-  const token = await getAccessToken()
-  const res = await fetch(`${BASE_URL}/integrations/affinda/parseprocess`, {
+  const res = await authFetch(`${BASE_URL}/integrations/affinda/parseprocess`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': API_KEY,
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ assetId, userId, payload, standalone, s3FullPath, skipParse }),
   })
