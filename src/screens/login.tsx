@@ -5,11 +5,13 @@ import stelace from '../api/stelace'
 import { theme } from '../theme'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
 import HcButton from '../components/HcButton'
+import { useAuth } from '../components/Authentification'
 import { requestNotificationPermission, registerFcmToken } from '../helpers/pushNotifications'
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native'
 
 export default function LoginForm({ onForgotPassword }: { onForgotPassword: () => void }) {
   const navigation = useNavigation()
+  const { refreshUser } = useAuth()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -25,6 +27,7 @@ export default function LoginForm({ onForgotPassword }: { onForgotPassword: () =
     setLoading(true)
     try {
       const { userId } = await stelace.auth.login({ username, password })
+      await refreshUser(userId)
       try {
         if (await requestNotificationPermission()) await registerFcmToken(userId)
       } catch (e) {

@@ -7,6 +7,7 @@ const API_KEY = Config.STELACE_PUBLISHABLE_API_KEY
 
 const ACCESS_TOKEN_KEY = 'stelace_access_token'
 const REFRESH_TOKEN_KEY = 'stelace_refresh_token'
+const USER_ID_KEY = 'stelace_user_id'
 
 async function signup({ user, noLogin = false }) {
   const payload = { ...user }
@@ -87,6 +88,7 @@ async function login({ username, password }) {
 
   await AsyncStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken)
   await AsyncStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken)
+  await AsyncStorage.setItem(USER_ID_KEY, tokens.userId)
 
   return tokens
 }
@@ -94,6 +96,7 @@ async function login({ username, password }) {
 async function logout() {
   await AsyncStorage.removeItem(ACCESS_TOKEN_KEY)
   await AsyncStorage.removeItem(REFRESH_TOKEN_KEY)
+  await AsyncStorage.removeItem(USER_ID_KEY)
 }
 
 async function getAccessToken() {
@@ -105,8 +108,10 @@ async function getCurrentUser(id) {
   const token = await getAccessToken()
   if (!token) return null
 
+  // Without an id, fall back to the logged-in user (restores the session on app start)
+  if (!id) id = await AsyncStorage.getItem(USER_ID_KEY)
   if (!id) {
-    console.log('No user id') 
+    console.log('No user id')
     return
   }
   const res = await fetch(`${BASE_URL}/users/${id}`, {
@@ -131,6 +136,18 @@ async function updateUser(id, data) {
   return res.json()
 }
 
+async function listUsers(ids) {
+  if (!ids.length) return []
+  const token = await getAccessToken()
+  const params = new URLSearchParams({ id: ids.join(','), nbResultsPerPage: '100' })
+  const res = await fetch(`${BASE_URL}/users?${params.toString()}`, {
+    headers: { 'x-api-key': API_KEY, Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Users fetch failed (${res.status})`)
+  const { results } = await res.json()
+  return results
+}
+
 // Asset management
 async function readAsset(id) {
   const token = await getAccessToken()
@@ -138,6 +155,50 @@ async function readAsset(id) {
     headers: { 'x-api-key': API_KEY, Authorization: `Bearer ${token}` },
   })
   if (!res.ok) throw new Error('Asset fetch failed')
+  return res.json()
+}
+
+// Message management
+async function listMessages({ userId, page = 1, nbResultsPerPage = 100 } = {}) {
+  const token = await getAccessToken()
+  const params = new URLSearchParams({
+    userId,
+    page: String(page),
+    nbResultsPerPage: String(nbResultsPerPage),
+    orderBy: 'createdDate',
+    order: 'desc',
+  })
+  const res = await fetch(`${BASE_URL}/messages?${params.toString()}`, {
+    headers: { 'x-api-key': API_KEY, Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Messages fetch failed (${res.status})`)
+  const { results } = await res.json()
+  return results
+}
+
+// All messages sent or received by userId, going through every page (fetchAllResults equivalent)
+async function listAllMessages({ userId }) {
+  const nbResultsPerPage = 100
+  let all = []
+  for (let page = 1; ; page++) {
+    const results = await listMessages({ userId, page, nbResultsPerPage })
+    all = all.concat(results)
+    if (results.length < nbResultsPerPage) return all
+  }
+}
+
+async function markMessageAsRead(id) {
+  const token = await getAccessToken()
+  const res = await fetch(`${BASE_URL}/messages/${id}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': API_KEY,
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ read: true }),
+  })
+  if (!res.ok) throw new Error('Message update failed')
   return res.json()
 }
 
@@ -213,8 +274,9 @@ async function affindaParseProcess({
 const stelace = {
   auth: { login, logout, signup },
   getAccessToken,
-  users: { getCurrent: getCurrentUser, update: updateUser },
+  users: { getCurrent: getCurrentUser, update: updateUser, list: listUsers },
   assets: { read: readAsset },
+  messages: { listAll: listAllMessages, markAsRead: markMessageAsRead },
   search: { affindaParseProcess },
   password: { resetRequest: sendResetPasswordRequest },
   data: { getDataLabelOptions },

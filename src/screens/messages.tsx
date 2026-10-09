@@ -1,12 +1,26 @@
 // src/screens/messages.tsx
-import React, { useEffect, useMemo, useState } from 'react'
-import { useNavigation, ParamListBase } from '@react-navigation/native'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useFocusEffect, useNavigation, ParamListBase } from '@react-navigation/native'
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs'
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet } from 'react-native'
+import { View, Text, TextInput, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
 import { theme } from '../theme'
-import { MOCK_CONVERSATIONS, Conversation } from '../mocks/messages'
+import stelace from '../api/stelace'
+import { useAuth } from '../components/Authentification'
+import { buildInbox, InboxConversation } from '../helpers/inbox'
+
+type Conversation = {
+  id: string
+  name: string
+  subtitle: string
+  lastMessage: string
+  fromMe: boolean
+  yourTurn: boolean
+  time: string
+  unreadCount: number
+  unreadMessageIds: string[]
+}
 
 const AVATAR_COLORS = [
   { bg: theme.colors.purple2, color: theme.colors.purple4 },
@@ -16,25 +30,110 @@ const AVATAR_COLORS = [
   { bg: theme.colors.red2, color: theme.colors.red5 },
 ]
 
+const WEEKDAYS = ['Dim.', 'Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.']
+
 function initials(name: string) {
   return name
     .split(' ')
+    .filter(Boolean)
     .slice(0, 2)
     .map(word => word[0].toUpperCase())
     .join('')
 }
 
+function avatarColor(id: string) {
+  let hash = 0
+  for (const char of id) hash = (hash + char.charCodeAt(0)) % AVATAR_COLORS.length
+  return AVATAR_COLORS[hash]
+}
+
+function pad(n: number) {
+  return String(n).padStart(2, '0')
+}
+
+function formatTime(iso?: string) {
+  if (!iso) return ''
+  const date = new Date(iso)
+  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+  const daysAgo = Math.round((startOfDay(new Date()) - startOfDay(date)) / 86400000)
+  if (daysAgo <= 0) return `${pad(date.getHours())}:${pad(date.getMinutes())}`
+  if (daysAgo === 1) return 'Hier'
+  if (daysAgo < 7) return WEEKDAYS[date.getDay()]
+  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}`
+}
+
+function interlocutorName(interlocutor: any) {
+  if (!interlocutor) return ''
+  const fullName = [interlocutor.firstname, interlocutor.lastname].filter(Boolean).join(' ')
+  return interlocutor.displayName || fullName
+}
+
+function toConversation(conv: InboxConversation, myIds: string[]): Conversation {
+  const lastMessage = conv.messages[0]
+  const role = conv.interlocutor?.metadata?._public?.role
+
+  return {
+    id: conv.interlocutorId,
+    name: interlocutorName(conv.interlocutor) || 'Interlocuteur inconnu',
+    subtitle: role ?? '',
+    lastMessage: lastMessage?.content ?? '',
+    fromMe: !!lastMessage && myIds.includes(lastMessage.senderId),
+    yourTurn: !!lastMessage && !myIds.includes(lastMessage.senderId),
+    time: formatTime(lastMessage?.createdDate),
+    unreadCount: conv.nbUnread,
+    unreadMessageIds: conv.messages.filter(m => myIds.includes(m.receiverId) && !m.read).map(m => m.id),
+  }
+}
+
 export default function MessagesScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<ParamListBase>>()
-  const [conversations, setConversations] = useState<Conversation[]>(MOCK_CONVERSATIONS)
+  const { currentUser } = useAuth()
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
+  const requestId = useRef(0)
+
+  const myIds = useMemo(
+    () => (currentUser?.id ? [currentUser.id, ...Object.keys(currentUser.organizations ?? {})] : []),
+    [currentUser],
+  )
 
   const unreadCount = conversations.filter(c => c.unreadCount > 0).length
 
   useEffect(() => {
     navigation.setOptions({ tabBarBadge: unreadCount > 0 ? unreadCount : undefined })
   }, [navigation, unreadCount])
+
+  const fetchConversations = useCallback(async () => {
+    if (!currentUser?.id) return
+    const id = ++requestId.current
+    setLoading(true)
+    setError(null)
+    try {
+      // Same flow as the manager's messageStore.fetchInbox
+      const messages = await stelace.messages.listAll({ userId: currentUser.id })
+      const participantIds: string[] = [...new Set<string>(messages.flatMap((m: any) => [m.senderId, m.receiverId]))]
+      const interlocutorIds = participantIds.filter(userId => !myIds.includes(userId))
+      const users = await stelace.users.list(interlocutorIds)
+      if (id !== requestId.current) return // a newer request superseded this one
+      setConversations(buildInbox(messages, users, myIds).map(conv => toConversation(conv, myIds)))
+    } catch (e) {
+      if (id !== requestId.current) return
+      console.warn(e)
+      setError('Impossible de charger vos messages.')
+    } finally {
+      if (id === requestId.current) setLoading(false)
+    }
+  }, [currentUser?.id, myIds])
+
+  // Refetch each time the tab gets focus so new messages show up
+  useFocusEffect(
+    useCallback(() => {
+      fetchConversations()
+    }, [fetchConversations]),
+  )
 
   const filtered = useMemo(() => {
     let list = conversations
@@ -44,26 +143,33 @@ export default function MessagesScreen() {
       list = list.filter(
         c =>
           c.name.toLowerCase().includes(q) ||
-          c.company.toLowerCase().includes(q) ||
-          c.offerTitle.toLowerCase().includes(q) ||
+          c.subtitle.toLowerCase().includes(q) ||
           c.lastMessage.toLowerCase().includes(q),
       )
     }
     return list
   }, [conversations, filter, search])
 
+  function markAsRead(ids: string[]) {
+    // Optimistic: errors are only logged, the next fetch restores the real state
+    ids.forEach(id => stelace.messages.markAsRead(id).catch(console.warn))
+  }
+
   function markAllAsRead() {
-    setConversations(prev => prev.map(c => ({ ...c, unreadCount: 0 })))
-    // TODO: call API to persist read state
+    markAsRead(conversations.flatMap(c => c.unreadMessageIds))
+    setConversations(prev => prev.map(c => ({ ...c, unreadCount: 0, unreadMessageIds: [] })))
   }
 
   function openConversation(item: Conversation) {
-    setConversations(prev => prev.map(c => (c.id === item.id ? { ...c, unreadCount: 0 } : c)))
+    markAsRead(item.unreadMessageIds)
+    setConversations(prev =>
+      prev.map(c => (c.id === item.id ? { ...c, unreadCount: 0, unreadMessageIds: [] } : c)),
+    )
     // TODO: navigate to the conversation thread once it exists
   }
 
   function renderItem({ item }: { item: Conversation }) {
-    const avatar = AVATAR_COLORS[Number(item.id) % AVATAR_COLORS.length]
+    const avatar = avatarColor(item.id)
     const unread = item.unreadCount > 0
 
     return (
@@ -77,12 +183,19 @@ export default function MessagesScreen() {
             <Text style={[styles.itemName, unread && styles.itemNameUnread]} numberOfLines={1}>
               {item.name}
             </Text>
+            {item.yourTurn && (
+              <View style={styles.yourTurnChip}>
+                <Text style={styles.yourTurnText}>À vous</Text>
+              </View>
+            )}
             <Text style={[styles.itemTime, unread && styles.itemTimeUnread]}>{item.time}</Text>
           </View>
 
-          <Text style={styles.itemContext} numberOfLines={1}>
-            {item.company} · {item.offerTitle}
-          </Text>
+          {!!item.subtitle && (
+            <Text style={styles.itemContext} numberOfLines={1}>
+              {item.subtitle}
+            </Text>
+          )}
 
           <View style={styles.itemBottomRow}>
             <Text style={[styles.itemMessage, unread && styles.itemMessageUnread]} numberOfLines={1}>
@@ -158,13 +271,18 @@ export default function MessagesScreen() {
         renderItem={renderItem}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={loading} onRefresh={fetchConversations} tintColor={theme.colors.primary} />
+        }
         ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Icon name="message-text-outline" size={40} color={theme.colors.grey3} />
-            <Text style={styles.emptyText}>
-              {conversations.length === 0 ? 'Pas encore de message.' : 'Aucune conversation ne correspond.'}
-            </Text>
-          </View>
+          loading ? null : (
+            <View style={styles.emptyState}>
+              <Icon name="message-text-outline" size={40} color={theme.colors.grey3} />
+              <Text style={styles.emptyText}>
+                {error ?? (conversations.length === 0 ? 'Pas encore de message.' : 'Aucune conversation ne correspond.')}
+              </Text>
+            </View>
+          )
         }
       />
     </SafeAreaView>
@@ -306,6 +424,17 @@ const styles = StyleSheet.create({
   itemNameUnread: {
     fontWeight: '700',
     color: theme.colors.grey7,
+  },
+  yourTurnChip: {
+    backgroundColor: theme.colors.green2,
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  yourTurnText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: theme.colors.green5,
   },
   itemTime: {
     fontSize: 11,
