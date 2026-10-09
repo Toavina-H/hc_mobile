@@ -12,7 +12,6 @@ import signupApplicantComplete from './src/screens/signupApplicantComplete'
 import ApplicationsScreen from './src/screens/applications'
 import OfferScreen from './src/screens/offer'
 import MessagesScreen from './src/screens/messages'
-import ConversationScreen from './src/screens/conversation'
 import NotificationsScreen from './src/screens/notifications'
 import { MOCK_NOTIFICATIONS } from './src/mocks/notifications'
 
@@ -60,7 +59,6 @@ const rootStack = createNativeStackNavigator({
     SignupApplicantComplete: { screen: signupApplicantComplete },
     Home: { screen: homeTabs },
     Offer: { screen: OfferScreen },
-    Conversation: { screen: ConversationScreen },
   },
 })
 
@@ -76,7 +74,6 @@ declare global {
 function RootNavigation() {
   const { currentUser, loading } = useAuth()
 
-  // Wait for the stored session to be restored, since initialState is only read on mount
   if (loading) return null
 
   return <Navigation initialState={currentUser ? { routes: [{ name: 'Home' }] } : undefined} />

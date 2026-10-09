@@ -1,5 +1,6 @@
 // src/helpers/inbox.ts
 // Port of the manager's messageStore.fetchInbox: groups raw Stelace messages into conversations
+import { cdnImg } from '../api/aws'
 
 export type InboxConversation = {
   convId: string
@@ -48,4 +49,43 @@ export function buildInbox(rawMessages: any[], users: any[], myIds: string[]): I
   }
 
   return conversations
+}
+
+// Ids the current user sends/receives messages as: themselves plus their organizations
+export function getMyIds(user: any): string[] {
+  return user?.id ? [user.id, ...Object.keys(user.organizations ?? {})] : []
+}
+
+export function interlocutorName(interlocutor: any) {
+  if (!interlocutor) return ''
+  const fullName = [interlocutor.firstname, interlocutor.lastname].filter(Boolean).join(' ')
+  return interlocutor.displayName || fullName
+}
+
+const AVATAR_PATHS = [
+  ['profileAsset', 'metadata', '_resume', 'avatar'],
+  ['metadata', '_resume', 'avatar'],
+  ['metadata', '_files', 'avatar'],
+  ['metadata', '_files', 'logo'],
+  ['company', 'metadata', '_files', 'logo'],
+  ['avatar'],
+]
+
+export function avatarUrl(entity: any, size = 96): string | null {
+  if (!entity) return null
+  for (const path of AVATAR_PATHS) {
+    const key = path.reduce((obj, prop) => obj?.[prop], entity)
+    if (typeof key !== 'string' || !key) continue
+    if (/^(https?:)?\/\//i.test(key) || /^data:/i.test(key)) return key
+    return cdnImg(key, { width: size, height: size })
+  }
+  return null
+}
+
+export function profileAssetIds(conversations: InboxConversation[]): string[] {
+  const ids = conversations
+    .filter(c => c.interlocutor?.roles?.includes('applicant'))
+    .map(c => c.interlocutor?.metadata?._resume?.profileAssetId)
+    .filter(Boolean)
+  return [...new Set<string>(ids)]
 }

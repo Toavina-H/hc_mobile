@@ -158,6 +158,18 @@ async function readAsset(id) {
   return res.json()
 }
 
+async function listAssets(ids) {
+  if (!ids.length) return []
+  const token = await getAccessToken()
+  const params = new URLSearchParams({ id: ids.join(','), nbResultsPerPage: '50' })
+  const res = await fetch(`${BASE_URL}/assets?${params.toString()}`, {
+    headers: { 'x-api-key': API_KEY, Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) throw new Error(`Assets fetch failed (${res.status})`)
+  const { results } = await res.json()
+  return results
+}
+
 // Message management
 async function listMessages({ userId, page = 1, nbResultsPerPage = 100 } = {}) {
   const token = await getAccessToken()
@@ -185,6 +197,21 @@ async function listAllMessages({ userId }) {
     all = all.concat(results)
     if (results.length < nbResultsPerPage) return all
   }
+}
+
+async function createMessage({ topicId, conversationId, receiverId, content }) {
+  const token = await getAccessToken()
+  const res = await fetch(`${BASE_URL}/messages`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': API_KEY,
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ topicId, conversationId, receiverId, content }),
+  })
+  if (!res.ok) throw new Error(`Message creation failed (${res.status})`)
+  return res.json()
 }
 
 async function markMessageAsRead(id) {
@@ -275,8 +302,8 @@ const stelace = {
   auth: { login, logout, signup },
   getAccessToken,
   users: { getCurrent: getCurrentUser, update: updateUser, list: listUsers },
-  assets: { read: readAsset },
-  messages: { listAll: listAllMessages, markAsRead: markMessageAsRead },
+  assets: { read: readAsset, list: listAssets },
+  messages: { listAll: listAllMessages, create: createMessage, markAsRead: markMessageAsRead },
   search: { affindaParseProcess },
   password: { resetRequest: sendResetPasswordRequest },
   data: { getDataLabelOptions },
