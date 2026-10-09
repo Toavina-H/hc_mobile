@@ -105,7 +105,6 @@ async function getAccessToken() {
 
 let refreshPromise = null
 
-// Concurrent callers share a single refresh request
 async function refreshAccessToken() {
   if (!refreshPromise) {
     refreshPromise = (async () => {
@@ -211,7 +210,6 @@ async function listMessages({ userId, page = 1, nbResultsPerPage = 100 } = {}) {
   return results
 }
 
-// All messages sent or received by userId, going through every page (fetchAllResults equivalent)
 async function listAllMessages({ userId }) {
   const nbResultsPerPage = 100
   let all = []

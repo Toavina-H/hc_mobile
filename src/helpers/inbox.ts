@@ -1,5 +1,3 @@
-// src/helpers/inbox.ts
-// Port of the manager's messageStore.fetchInbox: groups raw Stelace messages into conversations
 import { cdnImg } from '../api/aws'
 
 export type InboxConversation = {
@@ -7,7 +5,6 @@ export type InboxConversation = {
   topicId: string | null
   interlocutorId: string
   interlocutor?: any
-  // Newest first, scheduled messages excluded
   messages: any[]
   scheduledToSend: any[]
   nbUnread: number
@@ -51,7 +48,6 @@ export function buildInbox(rawMessages: any[], users: any[], myIds: string[]): I
   return conversations
 }
 
-// Ids the current user sends/receives messages as: themselves plus their organizations
 export function getMyIds(user: any): string[] {
   return user?.id ? [user.id, ...Object.keys(user.organizations ?? {})] : []
 }

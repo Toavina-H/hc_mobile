@@ -84,17 +84,14 @@ export default function MessagesScreen() {
     setLoading(true)
     setError(null)
     try {
-      // Same flow as the manager's messageStore.fetchInbox
       const messages = await stelace.messages.listAll({ userId: currentUser.id })
       const participantIds: string[] = [...new Set<string>(messages.flatMap((m: any) => [m.senderId, m.receiverId]))]
       const interlocutorIds = participantIds.filter(userId => !myIds.includes(userId))
       const users = await stelace.users.list(interlocutorIds)
       if (id !== requestId.current) return // a newer request superseded this one
       const inbox = buildInbox(messages, users, myIds)
-      // 1) Display conversations immediately, without waiting for profile pictures
       setConversations(inbox.map(conv => toConversation(conv, myIds)))
 
-      // 2) Load applicants' profile assets in the background and patch avatars when they arrive
       const assetIds = profileAssetIds(inbox)
       if (assetIds.length > 0) {
         stelace.assets
@@ -119,7 +116,6 @@ export default function MessagesScreen() {
     }
   }, [currentUser?.id, myIds])
 
-  // Refetch each time the tab gets focus so new messages show up
   useFocusEffect(
     useCallback(() => {
       fetchConversations()
@@ -142,7 +138,6 @@ export default function MessagesScreen() {
   }, [conversations, filter, search])
 
   function markAsRead(ids: string[]) {
-    // Optimistic: errors are only logged, the next fetch restores the real state
     ids.forEach(id => stelace.messages.markAsRead(id).catch(console.warn))
   }
 
@@ -152,7 +147,6 @@ export default function MessagesScreen() {
   }
 
   function openConversation(item: Conversation) {
-    // The thread marks its messages as read on the server, only update the badge here
     setConversations(prev =>
       prev.map(c => (c.id === item.id ? { ...c, unreadCount: 0, unreadMessageIds: [] } : c)),
     )

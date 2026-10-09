@@ -1,4 +1,3 @@
-// src/screens/conversation.tsx
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigation, StaticScreenProps } from '@react-navigation/native'
 import {
@@ -53,7 +52,6 @@ export default function ConversationScreen({ route }: Props) {
   const navigation = useNavigation()
   const { currentUser } = useAuth()
   const myIds = useMemo(() => getMyIds(currentUser), [currentUser])
-  // Newest first, rendered by an inverted list so the latest message sits at the bottom
   const [messages, setMessages] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -61,7 +59,6 @@ export default function ConversationScreen({ route }: Props) {
   const [sending, setSending] = useState(false)
   const [myAvatar, setMyAvatar] = useState<string | null>(null)
 
-  // Own avatar: applicants keep their photo on their profile asset (hc-core's $uElements('profileAsset'))
   useEffect(() => {
     setMyAvatar(avatarUrl(currentUser))
     const profileAssetId = currentUser?.metadata?._resume?.profileAssetId
@@ -89,7 +86,6 @@ export default function ConversationScreen({ route }: Props) {
         .sort((a: any, b: any) => (a.createdDate < b.createdDate ? 1 : -1))
       setMessages(thread)
 
-      // Optimistic: errors are only logged, the inbox refetch shows the real state
       thread
         .filter((m: any) => !m.read && myIds.includes(m.receiverId))
         .forEach((m: any) => stelace.messages.markAsRead(m.id).catch(console.warn))
@@ -108,7 +104,6 @@ export default function ConversationScreen({ route }: Props) {
   async function send() {
     const content = draft.trim()
     if (!content || sending) return
-    // Reply in the latest conversation with this interlocutor, like the web app
     const latest = messages[0]
     setSending(true)
     try {
@@ -131,7 +126,6 @@ export default function ConversationScreen({ route }: Props) {
   function renderItem({ item, index }: { item: any; index: number }) {
     const fromMe = myIds.includes(item.senderId)
     const myName = [currentUser?.firstname, currentUser?.lastname].filter(Boolean).join(' ') || 'Moi'
-    // Inverted list: the next item is the previous message in time
     const previous = messages[index + 1]
     const showDay = !previous || dayKey(previous.createdDate) !== dayKey(item.createdDate)
 
@@ -151,7 +145,6 @@ export default function ConversationScreen({ route }: Props) {
             </Text>
             <View style={styles.bubbleMeta}>
               <Text style={[styles.bubbleTime, fromMe && styles.bubbleTimeMine]}>{formatHour(item.createdDate)}</Text>
-              {/* Seen marker on my messages, like hc-core's done_all icon */}
               {fromMe && (
                 <Icon
                   name={item.read ? 'check-all' : 'check'}

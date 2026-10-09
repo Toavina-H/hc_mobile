@@ -34,7 +34,6 @@ const ENTITIES: Record<string, string> = {
   euro: '€',
 }
 
-// keepLineBreaks: keep paragraphs and <br> as new lines, for full message display
 export function htmlToText(html: string, { keepLineBreaks = false } = {}) {
   const text = html
     .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/gi, '')
@@ -56,7 +55,6 @@ export function htmlToText(html: string, { keepLineBreaks = false } = {}) {
     .trim()
 }
 
-// Plain text typed in the app -> HTML, since messages content is rendered as HTML on the web
 export function textToHtml(text: string) {
   return text
     .trim()

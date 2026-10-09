@@ -14,7 +14,6 @@ export function sanitizeFilename (val) {
   return val
 }
 
-// Port of hc-core's cdnImg (packages/ui/utils/aws.js): S3 key -> resized webp URL through the image handler
 export function cdnImg (cdnPath, opt = {}) {
   const lossless = opt.lossless ?? false
   const payload = {
@@ -26,7 +25,6 @@ export function cdnImg (cdnPath, opt = {}) {
     },
     ...(opt.noCache ? { cacheBuster: Date.now() } : {})
   }
-  // No Buffer in React Native: UTF-8 encode before btoa so non-ASCII keys don't throw
   const bytes = new TextEncoder().encode(JSON.stringify(payload))
   let binary = ''
   for (const b of bytes) binary += String.fromCharCode(b)
