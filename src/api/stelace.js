@@ -103,6 +103,19 @@ async function getAccessToken() {
   return await AsyncStorage.getItem(ACCESS_TOKEN_KEY)
 }
 
+const sessionExpiredListeners = new Set()
+
+// Returns an unsubscribe function, so it can be returned directly from a useEffect
+function onSessionExpired(listener) {
+  sessionExpiredListeners.add(listener)
+  return () => { sessionExpiredListeners.delete(listener) }
+}
+
+async function expireSession() {
+  await logout()
+  sessionExpiredListeners.forEach((listener) => listener())
+}
+
 let refreshPromise = null
 
 async function refreshAccessToken() {
@@ -127,8 +140,6 @@ async function refreshAccessToken() {
   return refreshPromise
 }
 
-// The API silently ignores an expired access token and falls back to the publishable key's
-// public role, so expiry surfaces as a 403 (not 401): refresh the token and retry once.
 async function authFetch(url, { headers, ...options } = {}) {
   const send = (token) => fetch(url, {
     ...options,
@@ -138,6 +149,7 @@ async function authFetch(url, { headers, ...options } = {}) {
   if (res.status === 401 || res.status === 403) {
     const token = await refreshAccessToken()
     if (token) res = await send(token)
+    else await expireSession()
   }
   return res
 }
@@ -311,7 +323,7 @@ async function affindaParseProcess({
 }
  
 const stelace = {
-  auth: { login, logout, signup },
+  auth: { login, logout, signup, onSessionExpired },
   getAccessToken,
   users: { getCurrent: getCurrentUser, update: updateUser, list: listUsers },
   assets: { read: readAsset, list: listAssets },

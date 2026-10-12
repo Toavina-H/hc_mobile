@@ -5,6 +5,7 @@ type AuthContextValue = {
   currentUser: any | null
   loading: boolean
   refreshUser: (userId?: string) => Promise<void>
+  logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -18,12 +19,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setCurrentUser(user)
   }
 
+  const logout = async () => {
+    await stelace.auth.logout()
+    setCurrentUser(null)
+  }
+
   useEffect(() => {
     refreshUser().finally(() => setLoading(false))
+    return stelace.auth.onSessionExpired(() => setCurrentUser(null))
   }, [])
 
   return (
-    <AuthContext.Provider value={{ currentUser, loading, refreshUser }}>
+    <AuthContext.Provider value={{ currentUser, loading, refreshUser, logout }}>
       {children}
     </AuthContext.Provider>
   )

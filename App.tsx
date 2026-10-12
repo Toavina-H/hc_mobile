@@ -1,6 +1,6 @@
 // App.tsx
-import React from 'react'
-import { createStaticNavigation, StaticParamList } from '@react-navigation/native'
+import React, { useEffect, useRef } from 'react'
+import { createNavigationContainerRef, createStaticNavigation, ParamListBase, StaticParamList } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
@@ -65,6 +65,7 @@ const rootStack = createNativeStackNavigator({
 })
 
 const Navigation = createStaticNavigation(rootStack)
+const navigationRef = createNavigationContainerRef<ParamListBase>()
 
 type RootStackParamList = StaticParamList<typeof rootStack>
 declare global {
@@ -75,10 +76,24 @@ declare global {
 
 function RootNavigation() {
   const { currentUser, loading } = useAuth()
+  const wasLoggedIn = useRef(false)
+
+  // Back to the login screen when the session ends (logout or expired refresh token)
+  useEffect(() => {
+    if (wasLoggedIn.current && !currentUser && navigationRef.isReady()) {
+      navigationRef.reset({ index: 0, routes: [{ name: 'Auth' }] })
+    }
+    wasLoggedIn.current = !!currentUser
+  }, [currentUser])
 
   if (loading) return null
 
-  return <Navigation initialState={currentUser ? { routes: [{ name: 'Home' }] } : undefined} />
+  return (
+    <Navigation
+      ref={navigationRef}
+      initialState={currentUser ? { routes: [{ name: 'Home' }] } : undefined}
+    />
+  )
 }
 
 export default function App() {
