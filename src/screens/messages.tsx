@@ -6,6 +6,7 @@ import { View, Text, TextInput, TouchableOpacity, FlatList, RefreshControl, Styl
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
 import { theme } from '../theme'
+import HeaderMenu from '../components/HeaderMenu'
 import stelace from '../api/stelace'
 import { useAuth } from '../components/Authentification'
 import ConversationAvatar from '../components/ConversationAvatar'
@@ -203,8 +204,11 @@ export default function MessagesScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Messages</Text>
-        <Text style={styles.headerSubtitle}>Vos échanges avec les cabinets</Text>
+        <View style={styles.headerText}>
+          <Text style={styles.headerTitle}>Messages</Text>
+          <Text style={styles.headerSubtitle}>Vos échanges avec les cabinets</Text>
+        </View>
+        <HeaderMenu />
       </View>
 
       <View style={styles.searchBar}>
@@ -283,8 +287,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     paddingTop: 12,
     paddingBottom: 16,
+  },
+  headerText: {
+    flex: 1,
   },
   headerTitle: {
     fontSize: 22,

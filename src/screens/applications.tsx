@@ -5,6 +5,7 @@ import { View, Text, TextInput, TouchableOpacity, FlatList, ScrollView, StyleShe
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
 import { theme } from '../theme'
+import HeaderMenu from '../components/HeaderMenu'
 import ApplicationStatusBadge, { STATUS_ORDER } from '../components/ApplicationStatusBadge'
 import { MOCK_APPLICATIONS, Application, ApplicationStatus } from '../mocks/applications'
 
@@ -94,10 +95,13 @@ export default function ApplicationsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Mes candidatures</Text>
-        <Text style={styles.headerSubtitle}>
-          {applications.length} candidature{applications.length > 1 ? 's' : ''}
-        </Text>
+        <View style={styles.headerText}>
+          <Text style={styles.headerTitle}>Mes candidatures</Text>
+          <Text style={styles.headerSubtitle}>
+            {applications.length} candidature{applications.length > 1 ? 's' : ''}
+          </Text>
+        </View>
+        <HeaderMenu />
       </View>
 
       <View style={styles.searchBar}>
@@ -160,8 +164,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     paddingTop: 12,
     paddingBottom: 16,
+  },
+  headerText: {
+    flex: 1,
   },
   headerTitle: {
     fontSize: 22,

@@ -6,6 +6,7 @@ import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet } from 'r
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
 import { theme } from '../theme'
+import HeaderMenu from '../components/HeaderMenu'
 import { MOCK_NOTIFICATIONS, Notification, NotificationType } from '../mocks/notifications'
 
 const ICON_BY_TYPE: Record<NotificationType, { name: string; bg: string; color: string }> = {
@@ -97,8 +98,11 @@ export default function NotificationsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Notifications</Text>
-        <Text style={styles.headerSubtitle}>Le suivi de vos candidatures et offres</Text>
+        <View style={styles.headerText}>
+          <Text style={styles.headerTitle}>Notifications</Text>
+          <Text style={styles.headerSubtitle}>Le suivi de vos candidatures et offres</Text>
+        </View>
+        <HeaderMenu />
       </View>
 
       <View style={styles.searchBar}>
@@ -178,8 +182,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     paddingTop: 12,
     paddingBottom: 16,
+  },
+  headerText: {
+    flex: 1,
   },
   headerTitle: {
     fontSize: 22,
