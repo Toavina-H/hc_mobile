@@ -69,6 +69,7 @@ export default function MessagesScreen() {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
+  const [pulling, setPulling] = useState(false)
   const requestId = useRef(0)
 
   const myIds = useMemo(() => getMyIds(currentUser), [currentUser])
@@ -122,6 +123,12 @@ export default function MessagesScreen() {
       fetchConversations()
     }, [fetchConversations]),
   )
+
+  async function pullToRefresh() {
+    setPulling(true)
+    await fetchConversations()
+    setPulling(false)
+  }
 
   const filtered = useMemo(() => {
     let list = conversations
@@ -263,7 +270,12 @@ export default function MessagesScreen() {
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={loading} onRefresh={fetchConversations} tintColor={theme.colors.primary} />
+          // Refetches on focus stay silent while data is already displayed
+          <RefreshControl
+            refreshing={pulling || (loading && conversations.length === 0)}
+            onRefresh={pullToRefresh}
+            tintColor={theme.colors.primary}
+          />
         }
         ListEmptyComponent={
           loading ? null : (

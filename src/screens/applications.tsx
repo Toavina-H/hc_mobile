@@ -30,6 +30,7 @@ export default function ApplicationsScreen() {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
+  const [pulling, setPulling] = useState(false)
   const requestId = useRef(0)
 
   const refresh = useCallback(async () => {
@@ -54,6 +55,12 @@ export default function ApplicationsScreen() {
       refresh()
     }, [refresh]),
   )
+
+  async function pullToRefresh() {
+    setPulling(true)
+    await refresh()
+    setPulling(false)
+  }
 
   const filters = useMemo(
     () => [
@@ -187,7 +194,14 @@ export default function ApplicationsScreen() {
         style={styles.listView}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={theme.colors.primary} />}
+        refreshControl={
+          // Refetches on focus stay silent while data is already displayed
+          <RefreshControl
+            refreshing={pulling || (loading && applications.length === 0)}
+            onRefresh={pullToRefresh}
+            tintColor={theme.colors.primary}
+          />
+        }
         ListEmptyComponent={
           loading ? null : (
             <Text style={styles.emptyState}>
