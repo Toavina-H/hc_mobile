@@ -207,6 +207,68 @@ async function listAssets(ids) {
   return results
 }
 
+async function listAssetsBy({ ownerId, assetTypeId }) {
+  if (!ownerId.length) return []
+  const params = new URLSearchParams({
+    ownerId: ownerId.join(','),
+    assetTypeId: assetTypeId.join(','),
+    nbResultsPerPage: '100',
+  })
+  const res = await authFetch(`${BASE_URL}/assets?${params.toString()}`)
+  if (!res.ok) throw new Error(`Assets fetch failed (${res.status})`)
+  const { results } = await res.json()
+  return results
+}
+
+// Transaction management (applications are transactions taken by the applicant)
+async function listTransactions({ takerId, assetTypeId, nbResultsPerPage = 100 }) {
+  const params = new URLSearchParams({
+    takerId,
+    assetTypeId: assetTypeId.join(','),
+    nbResultsPerPage: String(nbResultsPerPage),
+    orderBy: 'createdDate',
+    order: 'desc',
+  })
+  const res = await authFetch(`${BASE_URL}/transactions?${params.toString()}`)
+  if (!res.ok) throw new Error(`Transactions fetch failed (${res.status})`)
+  const { results } = await res.json()
+  return results
+}
+
+async function readTransaction(id) {
+  const res = await authFetch(`${BASE_URL}/transactions/${id}`)
+  if (res.status === 404) return null
+  if (!res.ok) throw new Error(`Transaction fetch failed (${res.status})`)
+  return res.json()
+}
+
+// Platform config and categories rarely change: fetched once per app session
+let configPromise = null
+function readConfig() {
+  if (!configPromise) {
+    configPromise = authFetch(`${BASE_URL}/config`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`Config fetch failed (${res.status})`)
+        return res.json()
+      })
+      .catch((e) => { configPromise = null; throw e })
+  }
+  return configPromise
+}
+
+let categoriesPromise = null
+function listCategories() {
+  if (!categoriesPromise) {
+    categoriesPromise = authFetch(`${BASE_URL}/categories`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`Categories fetch failed (${res.status})`)
+        return res.json()
+      })
+      .catch((e) => { categoriesPromise = null; throw e })
+  }
+  return categoriesPromise
+}
+
 // Message management
 async function listMessages({ userId, page = 1, nbResultsPerPage = 100 } = {}) {
   const params = new URLSearchParams({
@@ -326,7 +388,10 @@ const stelace = {
   auth: { login, logout, signup, onSessionExpired },
   getAccessToken,
   users: { getCurrent: getCurrentUser, update: updateUser, list: listUsers },
-  assets: { read: readAsset, list: listAssets },
+  assets: { read: readAsset, list: listAssets, listBy: listAssetsBy },
+  transactions: { list: listTransactions, read: readTransaction },
+  config: { read: readConfig },
+  categories: { list: listCategories },
   messages: { listAll: listAllMessages, create: createMessage, markAsRead: markMessageAsRead },
   search: { affindaParseProcess },
   password: { resetRequest: sendResetPasswordRequest },
