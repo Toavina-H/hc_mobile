@@ -1,13 +1,14 @@
 // src/screens/applications.tsx
-import React, { useMemo, useState } from 'react'
-import { useNavigation } from '@react-navigation/native'
-import { View, Text, TextInput, TouchableOpacity, FlatList, ScrollView, StyleSheet } from 'react-native'
+import React, { useCallback, useMemo, useRef, useState } from 'react'
+import { useFocusEffect, useNavigation } from '@react-navigation/native'
+import { View, Text, TextInput, TouchableOpacity, FlatList, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
 import { theme } from '../theme'
 import HeaderMenu from '../components/HeaderMenu'
-import ApplicationStatusBadge, { STATUS_ORDER } from '../components/ApplicationStatusBadge'
-import { MOCK_APPLICATIONS, Application, ApplicationStatus } from '../mocks/applications'
+import ApplicationStatusBadge, { STATUS_CONFIG, STATUS_ORDER } from '../components/ApplicationStatusBadge'
+import { useAuth } from '../components/Authentification'
+import { Application, ApplicationStatus, fetchApplications } from '../helpers/applications'
 
 type Filter = 'all' | ApplicationStatus
 
@@ -23,17 +24,43 @@ function initials(name: string) {
 
 export default function ApplicationsScreen() {
   const navigation = useNavigation()
-  // TODO: replace with the current user's applications fetched from the API
-  const [applications] = useState<Application[]>(MOCK_APPLICATIONS)
+  const { currentUser } = useAuth()
+  const [applications, setApplications] = useState<Application[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
+  const requestId = useRef(0)
+
+  const refresh = useCallback(async () => {
+    if (!currentUser?.id) return
+    const id = ++requestId.current
+    setLoading(true)
+    setError(null)
+    try {
+      const results = await fetchApplications(currentUser.id)
+      if (id === requestId.current) setApplications(results)
+    } catch (e) {
+      if (id !== requestId.current) return
+      console.warn(e)
+      setError('Impossible de charger vos candidatures.')
+    } finally {
+      if (id === requestId.current) setLoading(false)
+    }
+  }, [currentUser?.id])
+
+  useFocusEffect(
+    useCallback(() => {
+      refresh()
+    }, [refresh]),
+  )
 
   const filters = useMemo(
     () => [
       { key: 'all' as Filter, label: 'Toutes', count: applications.length },
       ...STATUS_ORDER.map(status => ({
         key: status as Filter,
-        label: status,
+        label: STATUS_CONFIG[status].label,
         count: applications.filter(a => a.status === status).length,
       })),
     ],
@@ -49,7 +76,7 @@ export default function ApplicationsScreen() {
         a =>
           a.offer.title.toLowerCase().includes(q) ||
           a.offer.company.toLowerCase().includes(q) ||
-          a.offer.location.toLowerCase().includes(q),
+          (a.offer.location ?? '').toLowerCase().includes(q),
       )
     }
     return list
@@ -60,7 +87,7 @@ export default function ApplicationsScreen() {
       <TouchableOpacity
         style={styles.card}
         activeOpacity={0.7}
-        onPress={() => navigation.navigate('Offer', { applicationId: item.id })}
+        onPress={() => navigation.navigate('Offer', { applicationId: item.id, application: item })}
       >
         <View style={styles.cardTop}>
           <View style={styles.avatar}>
@@ -77,12 +104,27 @@ export default function ApplicationsScreen() {
           <Icon name="chevron-right" size={22} color={theme.colors.grey4} />
         </View>
 
-        <View style={styles.metaRow}>
-          <Icon name="map-marker-outline" size={14} color={theme.colors.grey5} />
-          <Text style={styles.metaText}>{item.offer.location}</Text>
-          <Icon name="file-document-outline" size={14} color={theme.colors.grey5} style={styles.metaIcon} />
-          <Text style={styles.metaText}>{item.offer.contractType}</Text>
-        </View>
+        {(!!item.offer.location || !!item.offer.contractType) && (
+          <View style={styles.metaRow}>
+            {!!item.offer.location && (
+              <>
+                <Icon name="map-marker-outline" size={14} color={theme.colors.grey5} />
+                <Text style={styles.metaText}>{item.offer.location}</Text>
+              </>
+            )}
+            {!!item.offer.contractType && (
+              <>
+                <Icon
+                  name="file-document-outline"
+                  size={14}
+                  color={theme.colors.grey5}
+                  style={!!item.offer.location && styles.metaIcon}
+                />
+                <Text style={styles.metaText}>{item.offer.contractType}</Text>
+              </>
+            )}
+          </View>
+        )}
 
         <View style={styles.cardBottom}>
           <ApplicationStatusBadge status={item.status} />
@@ -145,12 +187,16 @@ export default function ApplicationsScreen() {
         style={styles.listView}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={loading} onRefresh={refresh} tintColor={theme.colors.primary} />}
         ListEmptyComponent={
-          <Text style={styles.emptyState}>
-            {applications.length === 0
-              ? "Vous n'avez pas encore postulé à une offre."
-              : 'Aucune candidature ne correspond à votre recherche.'}
-          </Text>
+          loading ? null : (
+            <Text style={styles.emptyState}>
+              {error ??
+                (applications.length === 0
+                  ? "Vous n'avez pas encore postulé à une offre."
+                  : 'Aucune candidature ne correspond à votre recherche.')}
+            </Text>
+          )
         }
       />
     </SafeAreaView>

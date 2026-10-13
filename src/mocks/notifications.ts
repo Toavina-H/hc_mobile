@@ -12,7 +12,7 @@ export type Notification = {
   time: string
   date: string
   read: boolean
-  // links to MOCK_APPLICATIONS so the notification can open the offer
+  // application (transaction) id, so the notification can open the offer
   applicationId?: string
 }
 

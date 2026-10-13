@@ -1,19 +1,43 @@
 // src/screens/offer.tsx
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigation, StaticScreenProps } from '@react-navigation/native'
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native'
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
 import { theme } from '../theme'
 import ApplicationStatusBadge, { STATUS_CONFIG } from '../components/ApplicationStatusBadge'
-import { MOCK_APPLICATIONS } from '../mocks/applications'
+import { Application, fetchApplication } from '../helpers/applications'
 
-type Props = StaticScreenProps<{ applicationId: string }>
+// `application` is passed when opened from the list, so the screen renders right away
+type Props = StaticScreenProps<{ applicationId: string; application?: Application }>
 
 export default function OfferScreen({ route }: Props) {
   const navigation = useNavigation()
-  // TODO: fetch the application and its offer from the API
-  const application = MOCK_APPLICATIONS.find(a => a.id === route.params.applicationId)
+  const { applicationId, application: initialApplication } = route.params
+  const [application, setApplication] = useState<Application | null>(initialApplication ?? null)
+  const [loading, setLoading] = useState(!initialApplication)
+  const [error, setError] = useState(false)
+  const [attempt, setAttempt] = useState(0)
+
+  useEffect(() => {
+    let cancelled = false
+    setError(false)
+    fetchApplication(applicationId)
+      .then(result => !cancelled && setApplication(result))
+      .catch(e => {
+        console.warn(e)
+        if (!cancelled) setError(true)
+      })
+      .finally(() => !cancelled && setLoading(false))
+    return () => {
+      cancelled = true
+    }
+  }, [applicationId, attempt])
+
+  function retry() {
+    setLoading(true)
+    setAttempt(n => n + 1)
+  }
 
   const header = (
     <View style={styles.header}>
@@ -24,6 +48,30 @@ export default function OfferScreen({ route }: Props) {
       <View style={styles.headerSpacer} />
     </View>
   )
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        {header}
+        <ActivityIndicator style={styles.loader} color={theme.colors.primary} />
+      </SafeAreaView>
+    )
+  }
+
+  // Keep showing the data from the list if only the background refresh failed
+  if (error && !application) {
+    return (
+      <SafeAreaView style={styles.container}>
+        {header}
+        <View style={styles.errorState}>
+          <Text style={styles.emptyState}>Impossible de charger cette candidature.</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={retry}>
+            <Text style={styles.retryText}>Réessayer</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    )
+  }
 
   if (!application) {
     return (
@@ -41,7 +89,7 @@ export default function OfferScreen({ route }: Props) {
     { icon: 'file-document-outline', label: offer.contractType },
     { icon: 'cash', label: offer.salary },
     { icon: 'laptop', label: offer.workMode },
-  ]
+  ].filter((d): d is { icon: string; label: string } => !!d.label)
 
   return (
     <SafeAreaView style={styles.container}>
@@ -55,20 +103,22 @@ export default function OfferScreen({ route }: Props) {
             </View>
             <View style={styles.flex}>
               <Text style={styles.company}>{offer.company}</Text>
-              <Text style={styles.publishedAt}>Publiée le {offer.publishedAt}</Text>
+              {!!offer.publishedAt && <Text style={styles.publishedAt}>Publiée le {offer.publishedAt}</Text>}
             </View>
           </View>
 
           <Text style={styles.title}>{offer.title}</Text>
 
-          <View style={styles.details}>
-            {details.map(d => (
-              <View key={d.icon} style={styles.detail}>
-                <Icon name={d.icon} size={16} color={theme.colors.grey5} />
-                <Text style={styles.detailText}>{d.label}</Text>
-              </View>
-            ))}
-          </View>
+          {details.length > 0 && (
+            <View style={styles.details}>
+              {details.map(d => (
+                <View key={d.icon} style={styles.detail}>
+                  <Icon name={d.icon} size={16} color={theme.colors.grey5} />
+                  <Text style={styles.detailText}>{d.label}</Text>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         <View style={styles.card}>
@@ -83,26 +133,14 @@ export default function OfferScreen({ route }: Props) {
           </View>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.sectionTitle}>Description du poste</Text>
-          <Text style={styles.paragraph}>{offer.description}</Text>
-
-          <Text style={[styles.sectionTitle, styles.sectionSpacing]}>Vos missions</Text>
-          {offer.missions.map(mission => (
-            <View key={mission} style={styles.bullet}>
-              <Icon name="check" size={16} color={theme.colors.primary} />
-              <Text style={styles.bulletText}>{mission}</Text>
-            </View>
-          ))}
-
-          <Text style={[styles.sectionTitle, styles.sectionSpacing]}>Profil recherché</Text>
-          {offer.profile.map(item => (
-            <View key={item} style={styles.bullet}>
-              <Icon name="check" size={16} color={theme.colors.primary} />
-              <Text style={styles.bulletText}>{item}</Text>
-            </View>
-          ))}
-        </View>
+        {!!offer.description && (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>
+              {application.spontaneous ? 'À propos du cabinet' : 'Description du poste'}
+            </Text>
+            <Text style={styles.paragraph}>{offer.description}</Text>
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   )
@@ -219,26 +257,29 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: theme.colors.grey7,
   },
-  sectionSpacing: {
-    marginTop: 18,
-  },
   paragraph: {
     fontSize: 14,
     lineHeight: 21,
     color: theme.colors.grey6,
     marginTop: 8,
   },
-  bullet: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    marginTop: 8,
+  loader: {
+    paddingVertical: 40,
   },
-  bulletText: {
-    flex: 1,
+  errorState: {
+    alignItems: 'center',
+  },
+  retryButton: {
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: theme.colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  retryText: {
     fontSize: 14,
-    lineHeight: 20,
-    color: theme.colors.grey6,
+    fontWeight: '600',
+    color: theme.colors.primary,
   },
   emptyState: {
     textAlign: 'center',
