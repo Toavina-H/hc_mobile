@@ -1,33 +1,41 @@
 // src/screens/notifications.tsx
-import React, { useEffect, useMemo, useState } from 'react'
-import { useNavigation, ParamListBase } from '@react-navigation/native'
+import React, { useCallback, useMemo, useState } from 'react'
+import { useFocusEffect, useNavigation, ParamListBase } from '@react-navigation/native'
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs'
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet } from 'react-native'
+import { View, Text, TextInput, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
 import { theme } from '../theme'
 import HeaderMenu from '../components/HeaderMenu'
-import { MOCK_NOTIFICATIONS, Notification, NotificationType } from '../mocks/notifications'
+import { useNotifications } from '../components/Notifications'
+import { Notification, NotificationKind, formatDayLabel, formatRelativeTime } from '../helpers/notifications'
 
-const ICON_BY_TYPE: Record<NotificationType, { name: string; bg: string; color: string }> = {
+const ICON_BY_KIND: Record<NotificationKind, { name: string; bg: string; color: string }> = {
   application: { name: 'briefcase-check-outline', bg: theme.colors.purple2, color: theme.colors.purple4 },
   interview: { name: 'calendar-account-outline', bg: theme.colors.blue2, color: theme.colors.blue5 },
-  message: { name: 'message-text-outline', bg: theme.colors.green2, color: theme.colors.green5 },
   offer: { name: 'briefcase-search-outline', bg: theme.colors.gold2, color: theme.colors.gold5 },
   profile: { name: 'account-edit-outline', bg: theme.colors.red2, color: theme.colors.red5 },
+  other: { name: 'bell-outline', bg: theme.colors.green2, color: theme.colors.green5 },
 }
 
 export default function NotificationsScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<ParamListBase>>()
-  const [notifications, setNotifications] = useState<Notification[]>(MOCK_NOTIFICATIONS)
+  const { notifications, loading, error, unreadCount, refresh, markAsRead, markAllAsRead } = useNotifications()
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
+  const [pulling, setPulling] = useState(false)
 
-  const unreadCount = notifications.filter(n => !n.read).length
+  useFocusEffect(
+    useCallback(() => {
+      refresh()
+    }, [refresh]),
+  )
 
-  useEffect(() => {
-    navigation.setOptions({ tabBarBadge: unreadCount > 0 ? unreadCount : undefined })
-  }, [navigation, unreadCount])
+  async function pullToRefresh() {
+    setPulling(true)
+    await refresh()
+    setPulling(false)
+  }
 
   const sections = useMemo(() => {
     let list = notifications
@@ -39,9 +47,10 @@ export default function NotificationsScreen() {
 
     const groups: { label: string; items: Notification[] }[] = []
     list.forEach(item => {
-      let group = groups.find(g => g.label === item.date)
+      const label = formatDayLabel(item.createdDate)
+      let group = groups.find(g => g.label === label)
       if (!group) {
-        group = { label: item.date, items: [] }
+        group = { label, items: [] }
         groups.push(group)
       }
       group.items.push(item)
@@ -49,23 +58,13 @@ export default function NotificationsScreen() {
     return groups
   }, [notifications, filter, search])
 
-  function markAllAsRead() {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })))
-    // TODO: call API to persist read state
-  }
-
   function openNotification(item: Notification) {
-    setNotifications(prev => prev.map(n => (n.id === item.id ? { ...n, read: true } : n)))
-    // TODO: call API to mark as read
-    if (item.applicationId) {
-      navigation.navigate('Offer', { applicationId: item.applicationId })
-    } else if (item.type === 'message') {
-      navigation.navigate('Messages')
-    }
+    if (!item.read) markAsRead(item.id)
+    if (item.applicationId) navigation.navigate('Offer', { applicationId: item.applicationId })
   }
 
   function renderItem(item: Notification) {
-    const icon = ICON_BY_TYPE[item.type]
+    const icon = ICON_BY_KIND[item.kind]
 
     return (
       <TouchableOpacity
@@ -88,7 +87,7 @@ export default function NotificationsScreen() {
         </View>
 
         <View style={styles.itemMeta}>
-          <Text style={styles.itemTime}>{item.time}</Text>
+          <Text style={styles.itemTime}>{formatRelativeTime(item.createdDate)}</Text>
           {!item.read && <View style={styles.unreadDot} />}
         </View>
       </TouchableOpacity>
@@ -156,6 +155,13 @@ export default function NotificationsScreen() {
         style={styles.listView}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={pulling || (loading && notifications.length === 0)}
+            onRefresh={pullToRefresh}
+            tintColor={theme.colors.primary}
+          />
+        }
         renderItem={({ item: group }) => (
           <View>
             <Text style={styles.groupLabel}>{group.label}</Text>
@@ -163,12 +169,15 @@ export default function NotificationsScreen() {
           </View>
         )}
         ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Icon name="bell-outline" size={40} color={theme.colors.grey3} />
-            <Text style={styles.emptyText}>
-              {notifications.length === 0 ? 'Pas encore de notification.' : 'Aucune notification ne correspond.'}
-            </Text>
-          </View>
+          loading ? null : (
+            <View style={styles.emptyState}>
+              <Icon name="bell-outline" size={40} color={theme.colors.grey3} />
+              <Text style={styles.emptyText}>
+                {error ??
+                  (notifications.length === 0 ? 'Pas encore de notification.' : 'Aucune notification ne correspond.')}
+              </Text>
+            </View>
+          )
         }
       />
     </SafeAreaView>

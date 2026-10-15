@@ -318,6 +318,35 @@ async function markMessageAsRead(id) {
   return res.json()
 }
 
+// Notification management 
+/** @param {{ status?: string[], page?: number, nbResultsPerPage?: number }} [options] */
+async function listNotifications({ status = [], page = 1, nbResultsPerPage = 100 } = {}) {
+  const params = new URLSearchParams({
+    page: String(page),
+    nbResultsPerPage: String(nbResultsPerPage),
+    orderBy: 'createdDate',
+    order: 'desc',
+  })
+  // Repeated keys, not a comma list: the API validates each status against its enum
+  status.forEach(s => params.append('status', s))
+  const res = await authFetch(`${BASE_URL}/notifications?${params.toString()}`)
+  if (!res.ok) throw new Error(`Notifications fetch failed (${res.status})`)
+  const { results } = await res.json()
+  return results
+}
+
+async function updateNotification(id, data) {
+  const res = await authFetch(`${BASE_URL}/notifications/${id}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error(`Notification update failed (${res.status})`)
+  return res.json()
+}
+
 // Others
 async function sendResetPasswordRequest({ username}) {
   const res = await fetch(`${BASE_URL}/password/reset/request`, {
@@ -393,6 +422,7 @@ const stelace = {
   config: { read: readConfig },
   categories: { list: listCategories },
   messages: { listAll: listAllMessages, create: createMessage, markAsRead: markMessageAsRead },
+  notifications: { list: listNotifications, update: updateNotification },
   search: { affindaParseProcess },
   password: { resetRequest: sendResetPasswordRequest },
   data: { getDataLabelOptions },

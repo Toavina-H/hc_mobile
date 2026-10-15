@@ -2,9 +2,10 @@
 import React, { useEffect, useRef } from 'react'
 import { createNavigationContainerRef, createStaticNavigation, ParamListBase, StaticParamList } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
+import { BottomTabBar, BottomTabBarProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
 import { AuthProvider, useAuth } from './src/components/Authentification'
+import { NotificationsProvider, useNotifications } from './src/components/Notifications'
 import { theme } from './src/theme'
 
 import AuthForm from './src/screens/authForm'
@@ -14,14 +15,27 @@ import OfferScreen from './src/screens/offer'
 import MessagesScreen from './src/screens/messages'
 import ConversationScreen from './src/screens/conversation'
 import NotificationsScreen from './src/screens/notifications'
-import { MOCK_NOTIFICATIONS } from './src/mocks/notifications'
 
 const tabIcon =
   (name: string) =>
   ({ color, size }: { color: string; size: number }) =>
     <Icon name={name} size={size} color={color} />
 
+function TabBar(props: BottomTabBarProps) {
+  const { unreadCount } = useNotifications()
+  const route = props.state.routes.find(r => r.name === 'Notifications')
+  if (!route) return <BottomTabBar {...props} />
+
+  const descriptor = props.descriptors[route.key]
+  const descriptors = {
+    ...props.descriptors,
+    [route.key]: { ...descriptor, options: { ...descriptor.options, tabBarBadge: unreadCount || undefined } },
+  }
+  return <BottomTabBar {...props} descriptors={descriptors} />
+}
+
 const homeTabs = createBottomTabNavigator({
+  tabBar: props => <TabBar {...props} />,
   screenOptions: {
     headerShown: false,
     tabBarActiveTintColor: theme.colors.primary,
@@ -44,8 +58,6 @@ const homeTabs = createBottomTabNavigator({
       options: {
         title: 'Notifications',
         tabBarIcon: tabIcon('bell-outline'),
-        // TODO: use the unread count from the API; NotificationsScreen keeps it in sync once mounted
-        tabBarBadge: MOCK_NOTIFICATIONS.filter(n => !n.read).length || undefined,
       },
     },
   },
@@ -99,7 +111,9 @@ function RootNavigation() {
 export default function App() {
   return (
     <AuthProvider>
-      <RootNavigation />
+      <NotificationsProvider>
+        <RootNavigation />
+      </NotificationsProvider>
     </AuthProvider>
   )
 }
