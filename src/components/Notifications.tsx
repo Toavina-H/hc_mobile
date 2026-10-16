@@ -1,7 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import { AppState } from 'react-native'
+import { getMessaging, onMessage } from '@react-native-firebase/messaging'
 import { useAuth } from './Authentification'
 import { fetchNotifications, markNotificationAsRead, Notification } from '../helpers/notifications'
+import { displayForegroundPush } from '../helpers/pushNotifications'
 
 type NotificationsContextValue = {
   notifications: Notification[]
@@ -56,6 +58,15 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
     })
     return () => subscription.remove()
   }, [refresh])
+
+  // Push received while the app is open; message pushes belong to the Messages tab
+  useEffect(() => {
+    if (!userId) return
+    return onMessage(getMessaging(), message => {
+      displayForegroundPush(message).catch(console.warn)
+      if (message.data?.type !== 'new_message_received') refresh()
+    })
+  }, [userId, refresh])
 
   // Updated in place rather than refetched; a failed PATCH is not worth bothering the user
   const markAsRead = useCallback((id: string) => {

@@ -1,11 +1,19 @@
 // App.tsx
-import React, { useEffect, useRef } from 'react'
+import React, { useCallback, useEffect, useRef } from 'react'
+import {
+  getInitialNotification,
+  getMessaging,
+  onNotificationOpenedApp,
+  RemoteMessage,
+} from '@react-native-firebase/messaging'
+import notifee, { EventType } from '@notifee/react-native'
 import { createNavigationContainerRef, createStaticNavigation, ParamListBase, StaticParamList } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { BottomTabBar, BottomTabBarProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
 import { AuthProvider, useAuth } from './src/components/Authentification'
 import { NotificationsProvider, useNotifications } from './src/components/Notifications'
+import { pushTarget } from './src/helpers/pushNotifications'
 import { theme } from './src/theme'
 
 import AuthForm from './src/screens/authForm'
@@ -98,12 +106,43 @@ function RootNavigation() {
     wasLoggedIn.current = !!currentUser
   }, [currentUser])
 
+  const openPush = useCallback((data?: Parameters<typeof pushTarget>[0]) => {
+    const target = pushTarget(data)
+    if (target && navigationRef.isReady()) navigationRef.navigate(target.name, target.params)
+  }, [])
+
+  useEffect(() => {
+    if (!currentUser) return
+    const unsubscribeFcm = onNotificationOpenedApp(getMessaging(), message => openPush(message.data))
+    // Push the app displayed itself, while in the foreground, then tapped
+    const unsubscribeNotifee = notifee.onForegroundEvent(({ type, detail }) => {
+      if (type === EventType.PRESS) openPush(detail.notification?.data)
+    })
+    return () => {
+      unsubscribeFcm()
+      unsubscribeNotifee()
+    }
+  }, [currentUser, openPush])
+
+  const openInitialPush = useCallback(async () => {
+    if (!currentUser) return
+    try {
+      const fcmMessage: RemoteMessage | null = await getInitialNotification(getMessaging())
+      if (fcmMessage) return openPush(fcmMessage.data)
+      const notifeeInitial = await notifee.getInitialNotification()
+      if (notifeeInitial) openPush(notifeeInitial.notification.data)
+    } catch (e) {
+      console.warn(e)
+    }
+  }, [currentUser, openPush])
+
   if (loading) return null
 
   return (
     <Navigation
       ref={navigationRef}
       initialState={currentUser ? { routes: [{ name: 'Home' }] } : undefined}
+      onReady={openInitialPush}
     />
   )
 }
