@@ -22,6 +22,7 @@ import OfferScreen from './src/screens/offer'
 import MessagesScreen from './src/screens/messages'
 import ConversationScreen from './src/screens/conversation'
 import NotificationsScreen from './src/screens/notifications'
+import AssistantScreen from './src/screens/assistant'
 
 const homeTabs = createBottomTabNavigator({
   tabBar: props => <TabBar {...props} />,
@@ -36,6 +37,10 @@ const homeTabs = createBottomTabNavigator({
     Messages: {
       screen: MessagesScreen,
       options: { title: 'Messages', tabBarIcon: tabIcon('message-text-outline') },
+    },
+    Assistant: {
+      screen: AssistantScreen,
+      options: { title: 'Assistant', tabBarIcon: tabIcon('robot-happy-outline') },
     },
     Notifications: {
       screen: NotificationsScreen,
