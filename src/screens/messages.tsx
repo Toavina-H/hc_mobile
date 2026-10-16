@@ -6,7 +6,10 @@ import { View, Text, TextInput, TouchableOpacity, FlatList, RefreshControl, Styl
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
 import { theme } from '../theme'
-import HeaderMenu from '../components/HeaderMenu'
+import ScreenHeader from '../components/ScreenHeader'
+import SegmentedControl from '../components/SegmentedControl'
+import UnreadDot from '../components/UnreadDot'
+import { useTabBarSpace } from '../components/TabBar'
 import stelace from '../api/stelace'
 import { useAuth } from '../components/Authentification'
 import ConversationAvatar from '../components/ConversationAvatar'
@@ -70,6 +73,7 @@ export default function MessagesScreen() {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
   const [pulling, setPulling] = useState(false)
+  const tabBarSpace = useTabBarSpace()
   const requestId = useRef(0)
 
   const myIds = useMemo(() => getMyIds(currentUser), [currentUser])
@@ -197,11 +201,7 @@ export default function MessagesScreen() {
               {item.fromMe ? 'Vous : ' : ''}
               {item.lastMessage}
             </Text>
-            {unread && (
-              <View style={styles.unreadBadge}>
-                <Text style={styles.unreadBadgeText}>{item.unreadCount}</Text>
-              </View>
-            )}
+            {unread && <UnreadDot />}
           </View>
         </View>
       </TouchableOpacity>
@@ -210,13 +210,7 @@ export default function MessagesScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <View style={styles.headerText}>
-          <Text style={styles.headerTitle}>Messages</Text>
-          <Text style={styles.headerSubtitle}>Vos échanges avec les cabinets</Text>
-        </View>
-        <HeaderMenu />
-      </View>
+      <ScreenHeader title="Messages" />
 
       <View style={styles.searchBar}>
         <Icon name="magnify" size={18} color={theme.colors.grey4} />
@@ -229,45 +223,24 @@ export default function MessagesScreen() {
         />
       </View>
 
-      <View style={styles.filtersRow}>
-        <View style={styles.chips}>
-          <TouchableOpacity
-            style={[styles.chip, filter === 'all' && styles.chipActive]}
-            onPress={() => setFilter('all')}
-          >
-            <Text style={[styles.chipText, filter === 'all' && styles.chipTextActive]}>Tous</Text>
-            <View style={[styles.chipBadge, filter === 'all' && styles.chipBadgeActive]}>
-              <Text style={[styles.chipBadgeText, filter === 'all' && styles.chipBadgeTextActive]}>
-                {conversations.length}
-              </Text>
-            </View>
-          </TouchableOpacity>
+      <SegmentedControl
+        options={[
+          { key: 'all', label: 'Tous' },
+          { key: 'unread', label: 'Non lus', dot: unreadCount > 0 },
+        ]}
+        value={filter}
+        onChange={setFilter}
+      />
 
-          <TouchableOpacity
-            style={[styles.chip, filter === 'unread' && styles.chipActive]}
-            onPress={() => setFilter('unread')}
-          >
-            <Text style={[styles.chipText, filter === 'unread' && styles.chipTextActive]}>Non lus</Text>
-            <View style={[styles.chipBadge, filter === 'unread' && styles.chipBadgeActive]}>
-              <Text style={[styles.chipBadgeText, filter === 'unread' && styles.chipBadgeTextActive]}>
-                {unreadCount}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity onPress={markAllAsRead} disabled={unreadCount === 0}>
-          <Text style={[styles.markAllText, unreadCount === 0 && styles.markAllDisabled]}>
-            Tout marquer comme lu
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity style={styles.markAll} onPress={markAllAsRead} disabled={unreadCount === 0}>
+        <Text style={[styles.markAllText, unreadCount === 0 && styles.markAllDisabled]}>Tout marquer comme lu</Text>
+      </TouchableOpacity>
 
       <FlatList
         data={filtered}
         keyExtractor={item => item.id}
         renderItem={renderItem}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={[styles.list, { paddingBottom: tabBarSpace + 16 }]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           // Refetches on focus stay silent while data is already displayed
@@ -298,34 +271,13 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.grey1,
     paddingHorizontal: 20,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingTop: 12,
-    paddingBottom: 16,
-  },
-  headerText: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: theme.colors.grey7,
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    color: theme.colors.grey5,
-    marginTop: 2,
-  },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.white,
     borderRadius: 24,
-    borderWidth: 1,
-    borderColor: theme.colors.grey2,
     paddingHorizontal: 14,
-    height: 44,
+    height: 46,
     marginBottom: 12,
     gap: 8,
   },
@@ -335,54 +287,9 @@ const styles = StyleSheet.create({
     color: theme.colors.grey7,
     padding: 0,
   },
-  filtersRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  chips: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.purple2,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    gap: 6,
-  },
-  chipActive: {
-    backgroundColor: theme.colors.primary,
-  },
-  chipText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: theme.colors.grey6,
-  },
-  chipTextActive: {
-    color: theme.colors.white,
-  },
-  chipBadge: {
-    backgroundColor: theme.colors.primary,
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    minWidth: 18,
-    alignItems: 'center',
-  },
-  chipBadgeActive: {
-    backgroundColor: theme.colors.white,
-  },
-  chipBadgeText: {
-    color: theme.colors.white,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  chipBadgeTextActive: {
-    color: theme.colors.primary,
+  markAll: {
+    alignSelf: 'flex-end',
+    paddingVertical: 10,
   },
   markAllText: {
     fontSize: 13,
@@ -393,14 +300,14 @@ const styles = StyleSheet.create({
     color: theme.colors.grey4,
   },
   list: {
-    paddingBottom: 24,
+    gap: 10,
   },
   item: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.grey2,
+    backgroundColor: theme.colors.white,
+    borderRadius: 20,
+    padding: 14,
     gap: 12,
   },
   itemBody: {
@@ -438,7 +345,7 @@ const styles = StyleSheet.create({
     color: theme.colors.grey4,
   },
   itemTimeUnread: {
-    color: theme.colors.primary,
+    color: theme.colors.grey7,
     fontWeight: '600',
   },
   itemContext: {
@@ -460,20 +367,6 @@ const styles = StyleSheet.create({
   itemMessageUnread: {
     color: theme.colors.grey7,
     fontWeight: '500',
-  },
-  unreadBadge: {
-    backgroundColor: theme.colors.primary,
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    minWidth: 20,
-    height: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  unreadBadgeText: {
-    color: theme.colors.white,
-    fontSize: 11,
-    fontWeight: '700',
   },
   emptyState: {
     alignItems: 'center',

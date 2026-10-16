@@ -6,7 +6,10 @@ import { View, Text, TextInput, TouchableOpacity, FlatList, RefreshControl, Styl
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
 import { theme } from '../theme'
-import HeaderMenu from '../components/HeaderMenu'
+import ScreenHeader from '../components/ScreenHeader'
+import SegmentedControl from '../components/SegmentedControl'
+import UnreadDot from '../components/UnreadDot'
+import { useTabBarSpace } from '../components/TabBar'
 import { useNotifications } from '../components/Notifications'
 import { Notification, NotificationKind, formatDayLabel, formatRelativeTime } from '../helpers/notifications'
 
@@ -24,6 +27,7 @@ export default function NotificationsScreen() {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
   const [pulling, setPulling] = useState(false)
+  const tabBarSpace = useTabBarSpace()
 
   useFocusEffect(
     useCallback(() => {
@@ -88,7 +92,7 @@ export default function NotificationsScreen() {
 
         <View style={styles.itemMeta}>
           <Text style={styles.itemTime}>{formatRelativeTime(item.createdDate)}</Text>
-          {!item.read && <View style={styles.unreadDot} />}
+          {!item.read && <UnreadDot />}
         </View>
       </TouchableOpacity>
     )
@@ -96,13 +100,7 @@ export default function NotificationsScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <View style={styles.header}>
-        <View style={styles.headerText}>
-          <Text style={styles.headerTitle}>Notifications</Text>
-          <Text style={styles.headerSubtitle}>Le suivi de vos candidatures et offres</Text>
-        </View>
-        <HeaderMenu />
-      </View>
+      <ScreenHeader title="Notifications" />
 
       <View style={styles.searchBar}>
         <Icon name="magnify" size={18} color={theme.colors.grey4} />
@@ -115,45 +113,24 @@ export default function NotificationsScreen() {
         />
       </View>
 
-      <View style={styles.filtersRow}>
-        <View style={styles.chips}>
-          <TouchableOpacity
-            style={[styles.chip, filter === 'all' && styles.chipActive]}
-            onPress={() => setFilter('all')}
-          >
-            <Text style={[styles.chipText, filter === 'all' && styles.chipTextActive]}>Toutes</Text>
-            <View style={[styles.chipBadge, filter === 'all' && styles.chipBadgeActive]}>
-              <Text style={[styles.chipBadgeText, filter === 'all' && styles.chipBadgeTextActive]}>
-                {notifications.length}
-              </Text>
-            </View>
-          </TouchableOpacity>
+      <SegmentedControl
+        options={[
+          { key: 'all', label: 'Toutes' },
+          { key: 'unread', label: 'Non lues', dot: unreadCount > 0 },
+        ]}
+        value={filter}
+        onChange={setFilter}
+      />
 
-          <TouchableOpacity
-            style={[styles.chip, filter === 'unread' && styles.chipActive]}
-            onPress={() => setFilter('unread')}
-          >
-            <Text style={[styles.chipText, filter === 'unread' && styles.chipTextActive]}>Non lues</Text>
-            <View style={[styles.chipBadge, filter === 'unread' && styles.chipBadgeActive]}>
-              <Text style={[styles.chipBadgeText, filter === 'unread' && styles.chipBadgeTextActive]}>
-                {unreadCount}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity onPress={markAllAsRead} disabled={unreadCount === 0}>
-          <Text style={[styles.markAllText, unreadCount === 0 && styles.markAllDisabled]}>
-            Tout marquer comme lu
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity style={styles.markAll} onPress={markAllAsRead} disabled={unreadCount === 0}>
+        <Text style={[styles.markAllText, unreadCount === 0 && styles.markAllDisabled]}>Tout marquer comme lu</Text>
+      </TouchableOpacity>
 
       <FlatList
         data={sections}
         keyExtractor={section => section.label}
         style={styles.listView}
-        contentContainerStyle={styles.list}
+        contentContainerStyle={{ paddingBottom: tabBarSpace + 16 }}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
@@ -190,34 +167,13 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.grey1,
     paddingHorizontal: 20,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingTop: 12,
-    paddingBottom: 16,
-  },
-  headerText: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: theme.colors.grey7,
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    color: theme.colors.grey5,
-    marginTop: 2,
-  },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: theme.colors.white,
     borderRadius: 24,
-    borderWidth: 1,
-    borderColor: theme.colors.grey2,
     paddingHorizontal: 14,
-    height: 44,
+    height: 46,
     marginBottom: 12,
     gap: 8,
   },
@@ -227,54 +183,9 @@ const styles = StyleSheet.create({
     color: theme.colors.grey7,
     padding: 0,
   },
-  filtersRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  chips: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: theme.colors.purple2,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    gap: 6,
-  },
-  chipActive: {
-    backgroundColor: theme.colors.primary,
-  },
-  chipText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: theme.colors.grey6,
-  },
-  chipTextActive: {
-    color: theme.colors.white,
-  },
-  chipBadge: {
-    backgroundColor: theme.colors.primary,
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    minWidth: 18,
-    alignItems: 'center',
-  },
-  chipBadgeActive: {
-    backgroundColor: theme.colors.white,
-  },
-  chipBadgeText: {
-    color: theme.colors.white,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  chipBadgeTextActive: {
-    color: theme.colors.primary,
+  markAll: {
+    alignSelf: 'flex-end',
+    paddingTop: 10,
   },
   markAllText: {
     fontSize: 13,
@@ -287,22 +198,20 @@ const styles = StyleSheet.create({
   listView: {
     flex: 1,
   },
-  list: {
-    paddingBottom: 24,
-  },
   groupLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: theme.colors.grey6,
+    fontSize: 17,
+    fontWeight: '700',
+    color: theme.colors.grey7,
     marginTop: 16,
-    marginBottom: 4,
+    marginBottom: 10,
   },
   item: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.colors.grey2,
+    backgroundColor: theme.colors.white,
+    borderRadius: 20,
+    padding: 14,
+    marginBottom: 10,
     gap: 12,
   },
   avatar: {
@@ -340,12 +249,6 @@ const styles = StyleSheet.create({
   itemTime: {
     fontSize: 11,
     color: theme.colors.grey4,
-  },
-  unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: theme.colors.primary,
   },
   emptyState: {
     alignItems: 'center',
