@@ -9,12 +9,11 @@ import {
 import notifee, { EventType } from '@notifee/react-native'
 import { createNavigationContainerRef, createStaticNavigation, ParamListBase, StaticParamList } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
-import { BottomTabBar, BottomTabBarProps, createBottomTabNavigator } from '@react-navigation/bottom-tabs'
-import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { AuthProvider, useAuth } from './src/components/Authentification'
-import { NotificationsProvider, useNotifications } from './src/components/Notifications'
+import { NotificationsProvider } from './src/components/Notifications'
+import TabBar, { tabIcon } from './src/components/TabBar'
 import { pushTarget } from './src/helpers/pushNotifications'
-import { theme } from './src/theme'
 
 import AuthForm from './src/screens/authForm'
 import signupApplicantComplete from './src/screens/signupApplicantComplete'
@@ -24,30 +23,10 @@ import MessagesScreen from './src/screens/messages'
 import ConversationScreen from './src/screens/conversation'
 import NotificationsScreen from './src/screens/notifications'
 
-const tabIcon =
-  (name: string) =>
-  ({ color, size }: { color: string; size: number }) =>
-    <Icon name={name} size={size} color={color} />
-
-function TabBar(props: BottomTabBarProps) {
-  const { unreadCount } = useNotifications()
-  const route = props.state.routes.find(r => r.name === 'Notifications')
-  if (!route) return <BottomTabBar {...props} />
-
-  const descriptor = props.descriptors[route.key]
-  const descriptors = {
-    ...props.descriptors,
-    [route.key]: { ...descriptor, options: { ...descriptor.options, tabBarBadge: unreadCount || undefined } },
-  }
-  return <BottomTabBar {...props} descriptors={descriptors} />
-}
-
 const homeTabs = createBottomTabNavigator({
   tabBar: props => <TabBar {...props} />,
   screenOptions: {
     headerShown: false,
-    tabBarActiveTintColor: theme.colors.primary,
-    tabBarInactiveTintColor: theme.colors.grey4,
   },
   screens: {
     Applications: {
@@ -56,17 +35,11 @@ const homeTabs = createBottomTabNavigator({
     },
     Messages: {
       screen: MessagesScreen,
-      options: {
-        title: 'Messages',
-        tabBarIcon: tabIcon('message-text-outline'),
-      },
+      options: { title: 'Messages', tabBarIcon: tabIcon('message-text-outline') },
     },
     Notifications: {
       screen: NotificationsScreen,
-      options: {
-        title: 'Notifications',
-        tabBarIcon: tabIcon('bell-outline'),
-      },
+      options: { title: 'Notifications', tabBarIcon: tabIcon('bell-outline') },
     },
   },
 })
