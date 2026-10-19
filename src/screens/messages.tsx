@@ -1,5 +1,5 @@
 // src/screens/messages.tsx
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import { useFocusEffect, useNavigation, ParamListBase } from '@react-navigation/native'
 import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs'
 import { View, Text, TextInput, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from 'react-native'
@@ -10,10 +10,10 @@ import ScreenHeader from '../components/ScreenHeader'
 import SegmentedControl from '../components/SegmentedControl'
 import UnreadDot from '../components/UnreadDot'
 import { useTabBarSpace } from '../components/TabBar'
-import stelace from '../api/stelace'
 import { useAuth } from '../components/Authentification'
+import { useInbox } from '../components/Inbox'
 import ConversationAvatar from '../components/ConversationAvatar'
-import { avatarUrl, buildInbox, getMyIds, interlocutorName, profileAssetIds, InboxConversation } from '../helpers/inbox'
+import { avatarUrl, getMyIds, interlocutorName, InboxConversation } from '../helpers/inbox'
 import { htmlToText } from '../helpers/html'
 
 type Conversation = {
@@ -26,7 +26,6 @@ type Conversation = {
   yourTurn: boolean
   time: string
   unreadCount: number
-  unreadMessageIds: string[]
 }
 
 const WEEKDAYS = ['Dim.', 'Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.']
@@ -60,77 +59,35 @@ function toConversation(conv: InboxConversation, myIds: string[]): Conversation 
     yourTurn: !!lastMessage && !myIds.includes(lastMessage.senderId),
     time: formatTime(lastMessage?.createdDate),
     unreadCount: conv.nbUnread,
-    unreadMessageIds: conv.messages.filter(m => myIds.includes(m.receiverId) && !m.read).map(m => m.id),
   }
 }
 
 export default function MessagesScreen() {
   const navigation = useNavigation<BottomTabNavigationProp<ParamListBase>>()
   const { currentUser } = useAuth()
-  const [conversations, setConversations] = useState<Conversation[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const inbox = useInbox()
+  const { loading, error, refresh, unreadCount } = inbox
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'unread'>('all')
   const [pulling, setPulling] = useState(false)
   const tabBarSpace = useTabBarSpace()
-  const requestId = useRef(0)
 
   const myIds = useMemo(() => getMyIds(currentUser), [currentUser])
+  const conversations = useMemo(
+    () => inbox.conversations.map(conv => toConversation(conv, myIds)),
+    [inbox.conversations, myIds],
+  )
 
-  const unreadCount = conversations.filter(c => c.unreadCount > 0).length
-
-  useEffect(() => {
-    navigation.setOptions({ tabBarBadge: unreadCount > 0 ? unreadCount : undefined })
-  }, [navigation, unreadCount])
-
-  const fetchConversations = useCallback(async () => {
-    if (!currentUser?.id) return
-    const id = ++requestId.current
-    setLoading(true)
-    setError(null)
-    try {
-      const messages = await stelace.messages.listAll({ userId: currentUser.id })
-      const participantIds: string[] = [...new Set<string>(messages.flatMap((m: any) => [m.senderId, m.receiverId]))]
-      const interlocutorIds = participantIds.filter(userId => !myIds.includes(userId))
-      const users = await stelace.users.list(interlocutorIds)
-      if (id !== requestId.current) return // a newer request superseded this one
-      const inbox = buildInbox(messages, users, myIds)
-      setConversations(inbox.map(conv => toConversation(conv, myIds)))
-
-      const assetIds = profileAssetIds(inbox)
-      if (assetIds.length > 0) {
-        stelace.assets
-          .list(assetIds)
-          .then((assets: any[]) => {
-            if (id !== requestId.current) return
-            const avatars = new Map<string, string | null>()
-            for (const conv of inbox) {
-              const asset = assets.find(a => a.ownerId === conv.interlocutorId)
-              if (asset) avatars.set(conv.interlocutorId, avatarUrl({ ...conv.interlocutor, profileAsset: asset }))
-            }
-            setConversations(prev => prev.map(c => (avatars.get(c.id) ? { ...c, avatar: avatars.get(c.id)! } : c)))
-          })
-          .catch(console.warn)
-      }
-    } catch (e) {
-      if (id !== requestId.current) return
-      console.warn(e)
-      setError('Impossible de charger vos messages.')
-    } finally {
-      if (id === requestId.current) setLoading(false)
-    }
-  }, [currentUser?.id, myIds])
-
+  // Already loaded at login: refetched in the background to stay fresh
   useFocusEffect(
     useCallback(() => {
-      fetchConversations()
-    }, [fetchConversations]),
+      refresh()
+    }, [refresh]),
   )
 
   async function pullToRefresh() {
     setPulling(true)
-    await fetchConversations()
+    await refresh()
     setPulling(false)
   }
 
@@ -149,19 +106,11 @@ export default function MessagesScreen() {
     return list
   }, [conversations, filter, search])
 
-  function markAsRead(ids: string[]) {
-    ids.forEach(id => stelace.messages.markAsRead(id).catch(console.warn))
-  }
-
   function markAllAsRead() {
-    markAsRead(conversations.flatMap(c => c.unreadMessageIds))
-    setConversations(prev => prev.map(c => ({ ...c, unreadCount: 0, unreadMessageIds: [] })))
+    inbox.markAsRead()
   }
 
   function openConversation(item: Conversation) {
-    setConversations(prev =>
-      prev.map(c => (c.id === item.id ? { ...c, unreadCount: 0, unreadMessageIds: [] } : c)),
-    )
     navigation.navigate('Conversation', {
       interlocutorId: item.id,
       name: item.name,

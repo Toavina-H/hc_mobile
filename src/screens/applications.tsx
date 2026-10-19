@@ -1,5 +1,5 @@
 // src/screens/applications.tsx
-import React, { useCallback, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import { useFocusEffect, useNavigation } from '@react-navigation/native'
 import { View, Text, TextInput, TouchableOpacity, FlatList, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
@@ -10,7 +10,8 @@ import HeaderMenu from '../components/HeaderMenu'
 import ConversationAvatar from '../components/ConversationAvatar'
 import ApplicationStatusBadge, { STATUS_CONFIG, STATUS_ORDER } from '../components/ApplicationStatusBadge'
 import { useAuth } from '../components/Authentification'
-import { Application, ApplicationStatus, fetchApplications } from '../helpers/applications'
+import { useApplications } from '../components/Applications'
+import { Application, ApplicationStatus } from '../helpers/applications'
 import { interlocutorName } from '../helpers/inbox'
 import { useTabBarSpace } from '../components/TabBar'
 
@@ -43,32 +44,13 @@ function highlighted(applications: Application[]) {
 export default function ApplicationsScreen() {
   const navigation = useNavigation()
   const { currentUser } = useAuth()
-  const [applications, setApplications] = useState<Application[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { applications, loading, error, refresh } = useApplications()
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
   const [pulling, setPulling] = useState(false)
-  const requestId = useRef(0)
   const tabBarSpace = useTabBarSpace()
 
-  const refresh = useCallback(async () => {
-    if (!currentUser?.id) return
-    const id = ++requestId.current
-    setLoading(true)
-    setError(null)
-    try {
-      const results = await fetchApplications(currentUser.id)
-      if (id === requestId.current) setApplications(results)
-    } catch (e) {
-      if (id !== requestId.current) return
-      console.warn(e)
-      setError('Impossible de charger vos candidatures.')
-    } finally {
-      if (id === requestId.current) setLoading(false)
-    }
-  }, [currentUser?.id])
-
+  // Already loaded at login: refetched in the background to stay fresh
   useFocusEffect(
     useCallback(() => {
       refresh()

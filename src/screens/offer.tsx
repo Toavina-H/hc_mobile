@@ -1,19 +1,24 @@
 // src/screens/offer.tsx
 import React, { useEffect, useState } from 'react'
 import { useNavigation, StaticScreenProps } from '@react-navigation/native'
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet } from 'react-native'
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
 import { theme } from '../theme'
 import ApplicationStatusBadge, { STATUS_CONFIG } from '../components/ApplicationStatusBadge'
+import { useApplications } from '../components/Applications'
+import HcSpinner from '../components/HcSpinner'
 import { Application, fetchApplication } from '../helpers/applications'
 
-// `application` is passed when opened from the list, so the screen renders right away
+// `application` is passed when opened from the list, otherwise taken from the ones loaded at login,
+// so the screen renders right away
 type Props = StaticScreenProps<{ applicationId: string; application?: Application }>
 
 export default function OfferScreen({ route }: Props) {
   const navigation = useNavigation()
-  const { applicationId, application: initialApplication } = route.params
+  const { applicationId } = route.params
+  const { applications } = useApplications()
+  const initialApplication = route.params.application ?? applications.find(a => a.id === applicationId)
   const [application, setApplication] = useState<Application | null>(initialApplication ?? null)
   const [loading, setLoading] = useState(!initialApplication)
   const [error, setError] = useState(false)
@@ -53,7 +58,9 @@ export default function OfferScreen({ route }: Props) {
     return (
       <SafeAreaView style={styles.container}>
         {header}
-        <ActivityIndicator style={styles.loader} color={theme.colors.primary} />
+        <View style={styles.loader}>
+          <HcSpinner />
+        </View>
       </SafeAreaView>
     )
   }
@@ -264,6 +271,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   loader: {
+    alignItems: 'center',
     paddingVertical: 40,
   },
   errorState: {

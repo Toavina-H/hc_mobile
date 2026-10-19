@@ -7,11 +7,15 @@ import {
   RemoteMessage,
 } from '@react-native-firebase/messaging'
 import notifee, { EventType } from '@notifee/react-native'
+import { StyleSheet, View } from 'react-native'
 import { createNavigationContainerRef, createStaticNavigation, ParamListBase, StaticParamList } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { AuthProvider, useAuth } from './src/components/Authentification'
-import { NotificationsProvider } from './src/components/Notifications'
+import { NotificationsProvider, useNotifications } from './src/components/Notifications'
+import { ApplicationsProvider, useApplications } from './src/components/Applications'
+import { InboxProvider, useInbox } from './src/components/Inbox'
+import { SplashScreen } from './src/components/HcSpinner'
 import TabBar, { tabIcon } from './src/components/TabBar'
 import { pushTarget } from './src/helpers/pushNotifications'
 
@@ -74,6 +78,8 @@ declare global {
 
 function RootNavigation() {
   const { currentUser, loading } = useAuth()
+  // Everything the tabs show is fetched upfront, so switching screens never waits
+  const dataReady = [useNotifications(), useApplications(), useInbox()].every(source => source.ready)
   const wasLoggedIn = useRef(false)
 
   // Back to the login screen when the session ends (logout or expired refresh token)
@@ -114,14 +120,18 @@ function RootNavigation() {
     }
   }, [currentUser, openPush])
 
-  if (loading) return null
+  if (loading) return <SplashScreen />
 
   return (
-    <Navigation
-      ref={navigationRef}
-      initialState={currentUser ? { routes: [{ name: 'Home' }] } : undefined}
-      onReady={openInitialPush}
-    />
+    <View style={styles.root}>
+      <Navigation
+        ref={navigationRef}
+        initialState={currentUser ? { routes: [{ name: 'Home' }] } : undefined}
+        onReady={openInitialPush}
+      />
+      {/* Right after login or session restore, until the user's data is there */}
+      {!dataReady && <SplashScreen />}
+    </View>
   )
 }
 
@@ -129,8 +139,18 @@ export default function App() {
   return (
     <AuthProvider>
       <NotificationsProvider>
-        <RootNavigation />
+        <ApplicationsProvider>
+          <InboxProvider>
+            <RootNavigation />
+          </InboxProvider>
+        </ApplicationsProvider>
       </NotificationsProvider>
     </AuthProvider>
   )
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+})

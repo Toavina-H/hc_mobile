@@ -1,14 +1,15 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
-import { AppState } from 'react-native'
+import React, { createContext, useCallback, useContext, useEffect } from 'react'
 import { getMessaging, onMessage } from '@react-native-firebase/messaging'
 import { useAuth } from './Authentification'
 import { fetchNotifications, markNotificationAsRead, Notification } from '../helpers/notifications'
 import { displayForegroundPush } from '../helpers/pushNotifications'
+import { useUserData } from '../helpers/useUserData'
 
 type NotificationsContextValue = {
   notifications: Notification[]
   loading: boolean
   error: string | null
+  ready: boolean
   unreadCount: number
   refresh: () => Promise<void>
   markAsRead: (id: string) => void
@@ -21,43 +22,14 @@ const NotificationsContext = createContext<NotificationsContextValue | undefined
 export function NotificationsProvider({ children }: { children: React.ReactNode }) {
   const { currentUser } = useAuth()
   const userId: string | undefined = currentUser?.id
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const requestId = useRef(0)
-
-  const refresh = useCallback(async () => {
-    const id = ++requestId.current
-    if (!userId) {
-      setNotifications([])
-      return
-    }
-    setLoading(true)
-    setError(null)
-    try {
-      const results = await fetchNotifications(userId)
-      if (id === requestId.current) setNotifications(results)
-    } catch (e) {
-      if (id !== requestId.current) return
-      console.warn(e)
-      setError('Impossible de charger vos notifications.')
-    } finally {
-      if (id === requestId.current) setLoading(false)
-    }
-  }, [userId])
-
-  // On login, logout and session restore
-  useEffect(() => {
-    refresh()
-  }, [refresh])
-
-  // Back from the background: notifications may have arrived meanwhile
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', state => {
-      if (state === 'active') refresh()
-    })
-    return () => subscription.remove()
-  }, [refresh])
+  const {
+    data: notifications,
+    setData: setNotifications,
+    loading,
+    error,
+    refresh,
+    ready,
+  } = useUserData(userId, fetchNotifications, [], 'Impossible de charger vos notifications.')
 
   // Push received while the app is open; message pushes belong to the Messages tab
   useEffect(() => {
@@ -72,19 +44,19 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
   const markAsRead = useCallback((id: string) => {
     setNotifications(prev => prev.map(n => (n.id === id ? { ...n, read: true } : n)))
     markNotificationAsRead(id).catch(console.warn)
-  }, [])
+  }, [setNotifications])
 
   const markAllAsRead = useCallback(() => {
     const unreadIds = notifications.filter(n => !n.read).map(n => n.id)
     setNotifications(prev => prev.map(n => ({ ...n, read: true })))
     unreadIds.forEach(id => markNotificationAsRead(id).catch(console.warn))
-  }, [notifications])
+  }, [notifications, setNotifications])
 
   const unreadCount = notifications.filter(n => !n.read).length
 
   return (
     <NotificationsContext.Provider
-      value={{ notifications, loading, error, unreadCount, refresh, markAsRead, markAllAsRead }}
+      value={{ notifications, loading, error, ready, unreadCount, refresh, markAsRead, markAllAsRead }}
     >
       {children}
     </NotificationsContext.Provider>

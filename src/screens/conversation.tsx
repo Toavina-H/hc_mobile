@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigation, StaticScreenProps } from '@react-navigation/native'
 import {
   View,
@@ -17,6 +17,8 @@ import { theme } from '../theme'
 import stelace from '../api/stelace'
 import { useAuth } from '../components/Authentification'
 import ConversationAvatar from '../components/ConversationAvatar'
+import HcSpinner from '../components/HcSpinner'
+import { useInbox } from '../components/Inbox'
 import { avatarUrl, getMyIds } from '../helpers/inbox'
 import { htmlToText, textToHtml } from '../helpers/html'
 
@@ -52,8 +54,8 @@ export default function ConversationScreen({ route }: Props) {
   const navigation = useNavigation()
   const { currentUser } = useAuth()
   const myIds = useMemo(() => getMyIds(currentUser), [currentUser])
-  const [messages, setMessages] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const inbox = useInbox()
+  const { markAsRead, refresh } = inbox
   const [error, setError] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
@@ -75,37 +77,32 @@ export default function ConversationScreen({ route }: Props) {
     }
   }, [currentUser])
 
-  const fetchMessages = useCallback(async () => {
-    if (!currentUser?.id) return
-    setError(null)
-    try {
-      const all = await stelace.messages.listAll({ userId: currentUser.id })
-      const thread = all
+  // Already loaded at login: shown right away and refetched in the background
+  const messages = useMemo(
+    () =>
+      inbox.messages
         .filter((m: any) => m.senderId === interlocutorId || m.receiverId === interlocutorId)
         .filter((m: any) => !m.metadata?.scheduledToSend)
-        .sort((a: any, b: any) => (a.createdDate < b.createdDate ? 1 : -1))
-      setMessages(thread)
-
-      thread
-        .filter((m: any) => !m.read && myIds.includes(m.receiverId))
-        .forEach((m: any) => stelace.messages.markAsRead(m.id).catch(console.warn))
-    } catch (e) {
-      console.warn(e)
-      setError('Impossible de charger la conversation.')
-    } finally {
-      setLoading(false)
-    }
-  }, [currentUser?.id, interlocutorId, myIds])
+        .sort((a: any, b: any) => (a.createdDate < b.createdDate ? 1 : -1)),
+    [inbox.messages, interlocutorId],
+  )
+  const loading = inbox.loading && messages.length === 0
 
   useEffect(() => {
-    fetchMessages()
-  }, [fetchMessages])
+    refresh()
+  }, [refresh])
+
+  // Also catches the messages coming in while the conversation is open
+  useEffect(() => {
+    markAsRead(interlocutorId)
+  }, [markAsRead, interlocutorId])
 
   async function send() {
     const content = draft.trim()
     if (!content || sending) return
     const latest = messages[0]
     setSending(true)
+    setError(null)
     try {
       const message = await stelace.messages.create({
         topicId: latest?.topicId,
@@ -113,7 +110,7 @@ export default function ConversationScreen({ route }: Props) {
         receiverId: interlocutorId,
         content: textToHtml(content),
       })
-      setMessages(prev => [message, ...prev])
+      inbox.addMessage(message)
       setDraft('')
     } catch (e) {
       console.warn(e)
@@ -181,7 +178,9 @@ export default function ConversationScreen({ route }: Props) {
 
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         {loading ? (
-          <ActivityIndicator style={styles.flex} color={theme.colors.primary} />
+          <View style={[styles.flex, styles.loader]}>
+            <HcSpinner />
+          </View>
         ) : (
           <FlatList
             inverted
@@ -194,7 +193,9 @@ export default function ConversationScreen({ route }: Props) {
           />
         )}
 
-        {!!error && <Text style={styles.error}>{error}</Text>}
+        {!!(error ?? (messages.length === 0 && inbox.error)) && (
+          <Text style={styles.error}>{error ?? inbox.error}</Text>
+        )}
 
         <View style={styles.composer}>
           <TextInput
@@ -229,6 +230,10 @@ const styles = StyleSheet.create({
   },
   flex: {
     flex: 1,
+  },
+  loader: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   header: {
     flexDirection: 'row',

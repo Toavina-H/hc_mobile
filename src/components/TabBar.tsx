@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
 import { theme } from '../theme'
 import { useNotifications } from './Notifications'
+import { useInbox } from './Inbox'
 import UnreadDot from './UnreadDot'
 
 const BAR_HEIGHT = 68
@@ -39,6 +40,7 @@ export function useTabBarSpace() {
 export default function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets()
   const { unreadCount } = useNotifications()
+  const { unreadCount: unreadConversations } = useInbox()
   // Keeps the bar from riding on top of the keyboard (Android adjustResize)
   const keyboardVisible = useKeyboardVisible()
 
@@ -50,8 +52,13 @@ export default function TabBar({ state, descriptors, navigation }: BottomTabBarP
         {state.routes.map((route, index) => {
           const { options } = descriptors[route.key]
           const focused = state.index === index
-          // Messages sets tabBarBadge itself; notifications come from the shared context
-          const hasDot = route.name === 'Notifications' ? unreadCount > 0 : !!options.tabBarBadge
+          // Unread counts come from the shared contexts, loaded at login
+          const hasDot =
+            route.name === 'Notifications'
+              ? unreadCount > 0
+              : route.name === 'Messages'
+                ? unreadConversations > 0
+                : !!options.tabBarBadge
           const color = focused ? theme.colors.white : theme.colors.grey5
 
           function onPress() {
