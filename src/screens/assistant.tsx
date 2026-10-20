@@ -17,7 +17,7 @@ import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
 import { theme } from '../theme'
 import ScreenHeader from '../components/ScreenHeader'
 import { useTabBarSpace } from '../components/TabBar'
-import { AssistantMessage, askAssistant } from '../helpers/assistant'
+import { AssistantMessage, askAssistant } from '../api/chat'
 
 const SUGGESTIONS = [
   'Comment préparer mon entretien ?',
@@ -31,23 +31,22 @@ function newMessage(role: AssistantMessage['role'], content: string): AssistantM
 }
 
 export default function AssistantScreen() {
-  // Newest first, for the inverted list
   const [messages, setMessages] = useState<AssistantMessage[]>([])
   const [draft, setDraft] = useState('')
   const [thinking, setThinking] = useState(false)
+  const [conversationId, setConversationId] = useState<string>()
   const tabBarSpace = useTabBarSpace()
 
   async function send(text = draft) {
     const content = text.trim()
     if (!content || thinking) return
-    const question = newMessage('user', content)
-    const history = [...messages].reverse().concat(question)
-    setMessages(prev => [question, ...prev])
+    setMessages(prev => [newMessage('user', content), ...prev])
     setDraft('')
     setThinking(true)
     try {
-      const answer = await askAssistant(history)
-      setMessages(prev => [newMessage('assistant', answer), ...prev])
+      const answer = await askAssistant(content, conversationId)
+      setConversationId(answer.conversationId)
+      setMessages(prev => [newMessage('assistant', answer.reply), ...prev])
     } catch (e) {
       console.warn(e)
       setMessages(prev => [newMessage('assistant', 'Une erreur est survenue, veuillez réessayer.'), ...prev])

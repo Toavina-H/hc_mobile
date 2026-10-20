@@ -416,6 +416,7 @@ async function affindaParseProcess({
 const stelace = {
   auth: { login, logout, signup, onSessionExpired },
   getAccessToken,
+  authFetch,
   users: { getCurrent: getCurrentUser, update: updateUser, list: listUsers },
   assets: { read: readAsset, list: listAssets, listBy: listAssetsBy },
   transactions: { list: listTransactions, read: readTransaction },
