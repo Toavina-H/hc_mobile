@@ -31,6 +31,8 @@ export type InterviewQuestion = { question: string; index: number; total: number
 
 export type InterviewStart = InterviewQuestion & { sessionId: string; resumeUsed: boolean }
 
+export type VoiceInterviewStart = { sessionId: string; sdp: string; total: number; maxMinutes: number; resumeUsed: boolean }
+
 export type InterviewAnswer =
   | ({ done: false } & InterviewQuestion)
   | { done: true; report: InterviewReport }
@@ -84,6 +86,11 @@ export const getInterviewQuota = () => request<InterviewQuota>('/quota')
 export const startInterview = (offerId: string) =>
   request<InterviewStart>('', { body: { offerId } })
 
+
+// Live voice interview: `sdp` is the phone's WebRTC offer, the response carries OpenAI's answer.
+// Same errors as startInterview
+export const startVoiceInterview = (offerId: string, sdp: string) =>
+  request<VoiceInterviewStart>('/voice', { body: { offerId, sdp } })
 
 export const answerInterview = (sessionId: string, answer: string, index: number, total: number) =>
   request<InterviewAnswer>(`/${sessionId}/answer`, {
