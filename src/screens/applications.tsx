@@ -98,6 +98,10 @@ export default function ApplicationsScreen() {
     navigation.navigate('Offer', { applicationId: application.id, application })
   }
 
+  function openInterview(application: Application) {
+    navigation.navigate('Interview', { offerId: application.offer.id, offerTitle: application.offer.title })
+  }
+
   function renderItem({ item }: { item: Application }) {
     return (
       <TouchableOpacity style={styles.card} activeOpacity={0.7} onPress={() => openApplication(item)}>
@@ -142,6 +146,11 @@ export default function ApplicationsScreen() {
           <ApplicationStatusBadge status={item.status} />
           <Text style={styles.appliedAt}>Postulé le {item.appliedAt}</Text>
         </View>
+
+        <TouchableOpacity style={styles.practice} activeOpacity={0.7} onPress={() => openInterview(item)}>
+          <Icon name="microphone-outline" size={16} color={theme.colors.primary} />
+          <Text style={styles.practiceText}>S'entraîner à l'entretien</Text>
+        </TouchableOpacity>
       </TouchableOpacity>
     )
   }
@@ -507,6 +516,21 @@ const styles = StyleSheet.create({
   appliedAt: {
     fontSize: 12,
     color: theme.colors.grey4,
+  },
+  practice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: theme.colors.purple2,
+    gap: 6,
+  },
+  practiceText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: theme.colors.primary,
   },
   emptyState: {
     textAlign: 'center',
