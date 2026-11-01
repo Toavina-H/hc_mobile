@@ -27,6 +27,7 @@ import MessagesScreen from './src/screens/messages'
 import ConversationScreen from './src/screens/conversation'
 import NotificationsScreen from './src/screens/notifications'
 import AssistantScreen from './src/screens/assistant'
+import InterviewScreen from './src/screens/interview'
 
 const homeTabs = createBottomTabNavigator({
   tabBar: props => <TabBar {...props} />,
@@ -63,6 +64,7 @@ const rootStack = createNativeStackNavigator({
     Home: { screen: homeTabs },
     Offer: { screen: OfferScreen },
     Conversation: { screen: ConversationScreen },
+    Interview: { screen: InterviewScreen },
   },
 })
 
