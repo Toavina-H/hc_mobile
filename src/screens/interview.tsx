@@ -1,7 +1,7 @@
 // src/screens/interview.tsx
 import React, { useEffect, useRef, useState } from 'react'
-import { useNavigation, StaticScreenProps } from '@react-navigation/native'
-import { View, Text, TouchableOpacity, ScrollView, Animated, StyleSheet } from 'react-native'
+import { useNavigation, usePreventRemove, StaticScreenProps } from '@react-navigation/native'
+import { View, Text, TouchableOpacity, ScrollView, Animated, StyleSheet, Alert } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import LinearGradient from 'react-native-linear-gradient'
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons'
@@ -68,6 +68,14 @@ export default function InterviewScreen({ route }: Props) {
   const { offerId, offerTitle } = route.params
   const call = useVoiceInterview(offerId)
   const elapsed = useElapsed(call.status === 'live' ? call.startedAt : null)
+
+  // leaving the screen hangs up: a stray tap on back (chevron, button, swipe) must not end the call
+  usePreventRemove(call.status === 'live' || call.status === 'connecting', ({ data }) => {
+    Alert.alert('Quitter l’entretien ?', 'L’appel sera raccroché.', [
+      { text: 'Continuer', style: 'cancel' },
+      { text: 'Quitter', style: 'destructive', onPress: () => navigation.dispatch(data.action) },
+    ])
+  })
 
   const header = (
     <View style={styles.header}>

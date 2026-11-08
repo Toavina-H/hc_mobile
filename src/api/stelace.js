@@ -82,7 +82,7 @@ async function login({ username, password }) {
       password
     }),
   })
-  if (!res.ok) throw new Error('Invalid username or password')
+  if (!res.ok) throw new Error('Email ou mot de passe incorrect')
 
   const tokens = await res.json()
 
