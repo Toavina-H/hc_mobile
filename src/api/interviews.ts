@@ -13,7 +13,7 @@ export type InterviewScores = {
   communication: number
   motivation: number
   adequation: number
-  coherenceCv: number
+  coherenceCv: number | null // null: the candidate has no CV
   clarte: number
 }
 

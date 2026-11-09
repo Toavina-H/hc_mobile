@@ -18,6 +18,7 @@ const ERRORS: Record<string, string> = {
   weekly_limit_reached: 'Vous avez utilisé vos entretiens de la semaine. Réessayez dans quelques jours.',
   offer_not_available: 'Cette offre n’est plus disponible.',
   interview_not_finished: 'L’entretien s’est arrêté avant votre première réponse : aucun compte rendu à générer.',
+  report_not_ready: 'Votre compte rendu n’est pas encore prêt. Réessayez dans quelques secondes.',
   timeout: 'La connexion est trop lente. Vérifiez votre réseau et réessayez.',
 }
 
@@ -158,7 +159,9 @@ export default function InterviewScreen({ route }: Props) {
           {(Object.keys(SCORE_LABELS) as (keyof InterviewScores)[]).map(key => (
             <View key={key} style={styles.scoreRow}>
               <Text style={styles.scoreLabel}>{SCORE_LABELS[key]}</Text>
-              <Text style={styles.scoreValue}>{call.report!.scores[key]}/5</Text>
+              <Text style={styles.scoreValue}>
+                {call.report!.scores[key] == null ? 'Sans CV' : `${call.report!.scores[key]}/5`}
+              </Text>
             </View>
           ))}
           <Text style={styles.sectionTitle}>Points forts</Text>

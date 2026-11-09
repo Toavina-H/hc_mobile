@@ -60,7 +60,7 @@ export function useVoiceInterview(offerId: string) {
         return
       } catch (e) {
         const code = e instanceof InterviewError ? e.code : 'server'
-        if (code === 'interview_not_finished' && attempt < REPORT_ATTEMPTS) {
+        if (code === 'report_not_ready' && attempt < REPORT_ATTEMPTS) {
           await wait(REPORT_RETRY_MS)
           continue
         }
